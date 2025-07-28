@@ -2,7 +2,8 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>군산시 행정복지센터 안내</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>군산시 행정복지센터 안내 (사이드바 접기 기능)</title>
     <style>
         /* 기본 스타일 초기화 */
         html, body {
@@ -10,18 +11,96 @@
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* 스크롤바 방지 */
+            overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
         }
 
-        /* 1. 전체 레이아웃을 위한 Flexbox 컨테이너 */
-        .container {
+        /* 전체 페이지를 감싸는 가로 Flexbox 컨테이너 */
+        .page-container {
             display: flex;
-            flex-direction: column; /* 세로 방향으로 아이템 배치 */
+            flex-direction: row;
             height: 100%;
         }
 
-        /* 2. 상단 헤더 스타일 */
+        /* 좌측 사이드바 스타일 */
+        .sidebar {
+            position: relative;
+            width: 280px;
+            background-color: #f0f4f9;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 100;
+            flex-shrink: 0;
+            transition: width 0.3s ease, padding 0.3s ease;
+        }
+
+        /* 사이드바가 접혔을 때의 스타일 */
+        .sidebar.collapsed {
+            width: 0;
+            padding: 20px 0;
+        }
+        
+        /* 사이드바 내부 콘텐츠 */
+        .sidebar-content {
+            width: 240px; 
+            overflow: hidden;
+            /* ✅ 부드러운 사라짐 효과를 위한 transition 추가 */
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        
+        /* ✅ 사이드바가 접혔을 때 내부 콘텐츠를 완전히 숨기는 스타일 추가 */
+        .sidebar.collapsed .sidebar-content {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .sidebar h1 {
+            font-size: 24px;
+            color: #1a73e8;
+            margin-top: 0;
+            white-space: nowrap;
+        }
+        .sidebar .menu-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+        .sidebar .menu-item:hover {
+            background-color: #e8f0fe;
+        }
+
+        /* 사이드바 토글 버튼 스타일 */
+        #sidebar-toggle-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            background-color: #e8f0fe;
+            border: 1px solid #d0d9e3;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #1a73e8;
+            transition: transform 0.3s ease, right 0.3s ease;
+        }
+        .sidebar.collapsed #sidebar-toggle-btn {
+            right: -45px;
+            transform: rotate(180deg);
+        }
+
+        /* 메인 콘텐츠 영역 (헤더 + 지도) */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
         .header {
             background-color: #0077c2;
             color: white;
@@ -29,15 +108,10 @@
             text-align: center;
             font-size: 20px;
             font-weight: bold;
-            flex-shrink: 0; /* 헤더 크기가 줄어들지 않도록 설정 */
         }
-
-        /* 3. 지도를 감싸는 컨테이너 스타일 */
         #map-container {
-            flex-grow: 1; /* 남은 모든 공간을 차지하도록 설정 (가장 중요!) */
-            position: relative;
+            flex-grow: 1;
         }
-        
         #map {
             width: 100%;
             height: 100%;
@@ -54,7 +128,7 @@
             font-weight: bold;
             text-align: center;
             white-space: nowrap;
-            transform: translate(-50%, -120%); /* 마커 기준 살짝 위로 이동 */
+            transform: translate(-50%, -120%);
             cursor: pointer;
         }
 
@@ -91,14 +165,22 @@
 </head>
 <body>
 
-<div class="container">
+<div class="page-container">
     
-    <header class="header">
-        군산시 행정복지센터 안내
-    </header>
+    <aside id="sidebar" class="sidebar">
+        <button id="sidebar-toggle-btn">«</button>
+        <div class="sidebar-content">
+            <h1>군산시 정보</h1>
+            <div class="menu-item">📍 행정복지센터</div>
+            <div class="menu-item">🍽️ 모범음식점</div>
+            <div class="menu-item">🌳 공원</div>
+            <div class="menu-item">📈 통계 정보</div>
+        </div>
+    </aside>
 
-    <div id="map-container">
-        <div id="map"></div>
+    <div class="main-content">
+        <header class="header">군산시 행정복지센터 안내</header>
+        <div id="map-container"><div id="map"></div></div>
     </div>
 
 </div>
@@ -114,6 +196,7 @@
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
 
 <script>
+    // CustomOverlay 클래스 정의
     function CustomOverlay(options) {
         this._element = document.createElement('div');
         this._element.innerHTML = options.content;
@@ -141,22 +224,27 @@
         return this._element;
     };
 
+    // HTML 요소 변수 할당
     const detailPanel = document.getElementById('detail-panel');
     const detailName = document.getElementById('detail-name');
     const detailLat = document.getElementById('detail-lat');
     const detailLng = document.getElementById('detail-lng');
     const closeButton = document.getElementById('close-button');
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle-btn');
 
+    // Supabase 클라이언트 초기화
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8'; // 본인의 Supabase anon 키로 교체하세요
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
+    // 메인 실행 함수
     async function main() {
         const map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
             zoom: 12,
-            mapDataControl: false // 불필요한 컨트롤 제거
+            mapDataControl: false
         });
 
         const { data: places, error } = await supabaseClient
@@ -190,10 +278,16 @@
         }
     }
 
+    // 이벤트 리스너 등록
     closeButton.addEventListener('click', function() {
         detailPanel.classList.remove('visible');
     });
+    
+    toggleBtn.addEventListener('click', function() {
+        sidebar.classList.toggle('collapsed');
+    });
 
+    // 메인 함수 실행
     main();
 </script>
 
