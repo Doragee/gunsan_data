@@ -2,15 +2,48 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Map with Name Overlay Only</title>
+    <title>군산시 행정복지센터 안내</title>
     <style>
-        html, body, #map {
+        /* 기본 스타일 초기화 */
+        html, body {
             height: 100%;
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            overflow: hidden; /* 스크롤바 방지 */
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
         }
+
+        /* 1. 전체 레이아웃을 위한 Flexbox 컨테이너 */
+        .container {
+            display: flex;
+            flex-direction: column; /* 세로 방향으로 아이템 배치 */
+            height: 100%;
+        }
+
+        /* 2. 상단 헤더 스타일 */
+        .header {
+            background-color: #0077c2;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            flex-shrink: 0; /* 헤더 크기가 줄어들지 않도록 설정 */
+        }
+
+        /* 3. 지도를 감싸는 컨테이너 스타일 */
+        #map-container {
+            flex-grow: 1; /* 남은 모든 공간을 차지하도록 설정 (가장 중요!) */
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 이름표(오버레이) 스타일 */
         .custom-overlay-label {
             position: absolute;
             background-color: white;
@@ -21,9 +54,11 @@
             font-weight: bold;
             text-align: center;
             white-space: nowrap;
-            transform: translate(-50%, -100%);
-            cursor: pointer; /* 클릭할 수 있다는 것을 알려주기 위해 커서 모양 변경 */
+            transform: translate(-50%, -120%); /* 마커 기준 살짝 위로 이동 */
+            cursor: pointer;
         }
+
+        /* 하단 패널 스타일 */
         .panel {
             position: fixed;
             bottom: -100%;
@@ -56,7 +91,17 @@
 </head>
 <body>
 
-<div id="map"></div>
+<div class="container">
+    
+    <header class="header">
+        군산시 행정복지센터 안내
+    </header>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+</div>
 
 <div id="detail-panel" class="panel">
     <button id="close-button" class="close-btn">&times;</button>
@@ -92,11 +137,9 @@
     CustomOverlay.prototype.onRemove = function() {
         this._element.parentElement.removeChild(this._element);
     };
-    // ✅ 클릭 이벤트를 위해 자신의 HTML 요소를 반환하는 메서드 추가
     CustomOverlay.prototype.getElement = function() {
         return this._element;
     };
-
 
     const detailPanel = document.getElementById('detail-panel');
     const detailName = document.getElementById('detail-name');
@@ -105,27 +148,30 @@
     const closeButton = document.getElementById('close-button');
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8'; // 본인의 키로 교체하세요
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8'; // 본인의 Supabase anon 키로 교체하세요
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     async function main() {
         const map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
-            zoom: 12
+            zoom: 12,
+            mapDataControl: false // 불필요한 컨트롤 제거
         });
 
         const { data: places, error } = await supabaseClient
             .from('administrative_welfare_centers')
             .select('name, latitude, longitude');
 
-        if (error) { console.error('Error:', error); return; }
+        if (error) { 
+            console.error('Error fetching data:', error);
+            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            return; 
+        }
 
         if (places) {
             for (const place of places) {
                 const position = new naver.maps.LatLng(place.latitude, place.longitude);
-
-                // ✅ 마커 생성 코드를 삭제했습니다.
 
                 const customOverlay = new CustomOverlay({
                     position: position,
@@ -133,7 +179,6 @@
                 });
                 customOverlay.setMap(map);
                 
-                // ✅ 이름표(customOverlay)에 직접 클릭 이벤트를 추가합니다.
                 customOverlay.getElement().addEventListener('click', function() {
                     detailName.textContent = place.name;
                     detailLat.textContent = place.latitude;
