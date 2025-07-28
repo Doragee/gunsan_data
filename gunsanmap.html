@@ -2,9 +2,15 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>OverlayView with Supabase (Final Fix)</title>
+    <title>Map with Name Overlay Only</title>
     <style>
-        html, body, #map { height: 600px; width: 100%; margin: 0; padding: 0; }
+        html, body, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
         .custom-overlay-label {
             position: absolute;
             background-color: white;
@@ -16,6 +22,35 @@
             text-align: center;
             white-space: nowrap;
             transform: translate(-50%, -100%);
+            cursor: pointer; /* 클릭할 수 있다는 것을 알려주기 위해 커서 모양 변경 */
+        }
+        .panel {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            padding: 20px;
+            padding-top: 40px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            box-sizing: border-box;
+            z-index: 1000;
+            transition: bottom 0.5s ease-in-out;
+        }
+        .panel.visible {
+            bottom: 0;
+        }
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #555;
         }
     </style>
 </head>
@@ -23,53 +58,54 @@
 
 <div id="map"></div>
 
+<div id="detail-panel" class="panel">
+    <button id="close-button" class="close-btn">&times;</button>
+    <h2 id="detail-name">장소 이름</h2>
+    <p><strong>위도:</strong> <span id="detail-lat"></span></p>
+    <p><strong>경도:</strong> <span id="detail-lng"></span></p>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="text/javascript"
-        src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle">
-</script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
 
 <script>
-    // ✅ 1. CustomOverlay 생성자를 수정했습니다.
-    // 생성자에서는 HTML 요소 생성과 내부 변수 설정만 합니다.
     function CustomOverlay(options) {
         this._element = document.createElement('div');
         this._element.innerHTML = options.content;
         this._element.className = 'custom-overlay-label';
-
-        // 오버레이의 위치(좌표)를 내부 변수로 저장합니다.
         this._position = options.position;
     }
-
     CustomOverlay.prototype = new naver.maps.OverlayView();
     CustomOverlay.prototype.constructor = CustomOverlay;
-
     CustomOverlay.prototype.onAdd = function() {
         var overlayLayer = this.getPanes().overlayLayer;
         overlayLayer.appendChild(this._element);
     };
-
-    // ✅ 2. draw 메서드를 수정했습니다.
-    // getPosition() 대신 내부 변수 this._position을 사용합니다.
     CustomOverlay.prototype.draw = function() {
-        if (!this.getMap()) {
-            return;
-        }
+        if (!this.getMap()) { return; }
         var projection = this.getProjection();
-        var position = this._position; // 내부 변수 사용
+        var position = this._position;
         var pixelPosition = projection.fromCoordToOffset(position);
-
         this._element.style.left = pixelPosition.x + 'px';
         this._element.style.top = pixelPosition.y + 'px';
     };
-
     CustomOverlay.prototype.onRemove = function() {
         this._element.parentElement.removeChild(this._element);
     };
+    // ✅ 클릭 이벤트를 위해 자신의 HTML 요소를 반환하는 메서드 추가
+    CustomOverlay.prototype.getElement = function() {
+        return this._element;
+    };
 
-    // --- 메인 로직 ---
+
+    const detailPanel = document.getElementById('detail-panel');
+    const detailName = document.getElementById('detail-name');
+    const detailLat = document.getElementById('detail-lat');
+    const detailLng = document.getElementById('detail-lng');
+    const closeButton = document.getElementById('close-button');
+
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
-    
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8'; // 본인의 키로 교체하세요
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
@@ -83,30 +119,35 @@
             .from('administrative_welfare_centers')
             .select('name, latitude, longitude');
 
-        if (error) {
-            console.error('Error fetching data:', error);
-            return;
-        }
+        if (error) { console.error('Error:', error); return; }
 
         if (places) {
             for (const place of places) {
                 const position = new naver.maps.LatLng(place.latitude, place.longitude);
 
-                const marker = new naver.maps.Marker({
-                    map: map,
-                    position: position
-                });
+                // ✅ 마커 생성 코드를 삭제했습니다.
 
                 const customOverlay = new CustomOverlay({
                     position: position,
                     content: `<div>${place.name}</div>`
                 });
-
-                // ✅ 3. 오버레이를 생성한 후, setMap(map)을 호출하여 지도에 추가합니다.
                 customOverlay.setMap(map);
+                
+                // ✅ 이름표(customOverlay)에 직접 클릭 이벤트를 추가합니다.
+                customOverlay.getElement().addEventListener('click', function() {
+                    detailName.textContent = place.name;
+                    detailLat.textContent = place.latitude;
+                    detailLng.textContent = place.longitude;
+                    
+                    detailPanel.classList.add('visible');
+                });
             }
         }
     }
+
+    closeButton.addEventListener('click', function() {
+        detailPanel.classList.remove('visible');
+    });
 
     main();
 </script>
