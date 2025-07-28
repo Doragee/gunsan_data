@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>네이버 지도 기본 예제</title>
+    <style>
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>군산시 지도</h1>
+
+<div id="map"></div>
+
+<script type="text/javascript" 
+        src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle">
+</script>
+
+<script>
+    // 1. 지도 옵션 설정 (군산시청 기준)
+    var mapOptions = {
+        center: new naver.maps.LatLng(35.96756, 126.7383), // 지도의 초기 중심 좌표
+        zoom: 12, // 지도의 초기 줌 레벨
+        minZoom: 7, // 지도의 최소 줌 레벨
+        zoomControl: true, // 줌 컨트롤 표시 여부
+        zoomControlOptions: {
+            position: naver.maps.Position.TOP_RIGHT // 줌 컨트롤 위치
+        }
+    };
+
+    // 2. 지도 객체 생성
+    // 첫 번째 인자: 지도를 표시할 div의 id
+    // 두 번째 인자: 지도 옵션
+    var map = new naver.maps.Map('map', mapOptions);
+
+        // 2. 표시할 데이터 준비 (이 부분을 본인의 데이터로 교체하세요)
+    // 각 데이터는 이름(title)과 위도(lat), 경도(lng)를 가집니다.
+    const places = [
+        {
+            title: '이성당',
+            lat: 35.98713,
+            lng: 126.7118
+        },
+        {
+            title: '초원사진관',
+            lat: 35.98687,
+            lng: 126.7110
+        },
+        {
+            title: '경암동 철길마을',
+            lat: 35.97681,
+            lng: 126.7309
+        },
+        {
+            title: '은파호수공원',
+            lat: 35.96236,
+            lng: 126.7119
+        }
+    ];
+
+    // 3. 데이터만큼 반복하며 마커 생성하기
+    for (let i = 0; i < places.length; i++) {
+        // 마커를 생성합니다.
+        const marker = new naver.maps.Marker({
+            map: map, // 마커를 표시할 지도 객체
+            position: new naver.maps.LatLng(places[i].lat, places[i].lng) // 마커의 좌표
+        });
+
+        // 정보창(InfoWindow)을 생성합니다.
+        const infoWindow = new naver.maps.InfoWindow({
+            content: `<div style="padding:10px;"><b>${places[i].title}</b></div>`
+        });
+
+        // 마커를 클릭했을 때 정보창을 열도록 이벤트를 등록합니다.
+        naver.maps.Event.addListener(marker, 'click', function() {
+            infoWindow.open(map, marker);
+        });
+
+        // ✅ 조건문 없이 모든 정보창을 바로 엽니다.
+        infoWindow.open(map, marker);
+    }
+
+</script>
+
+</body>
+</html>
