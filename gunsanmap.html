@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>군산시 행정복지센터 안내 (사이드바 접기 기능)</title>
+    <title>군산시 행정복지센터 안내</title>
     <style>
         /* 기본 스타일 초기화 */
         html, body {
@@ -15,92 +15,14 @@
             font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
         }
 
-        /* 전체 페이지를 감싸는 가로 Flexbox 컨테이너 */
+        /* 전체 페이지를 감싸는 세로 Flexbox 컨테이너 */
         .page-container {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             height: 100%;
         }
 
-        /* 좌측 사이드바 스타일 */
-        .sidebar {
-            position: relative;
-            width: 280px;
-            background-color: #f0f4f9;
-            padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            z-index: 100;
-            flex-shrink: 0;
-            transition: width 0.3s ease, padding 0.3s ease;
-        }
-
-        /* 사이드바가 접혔을 때의 스타일 */
-        .sidebar.collapsed {
-            width: 0;
-            padding: 20px 0;
-        }
-        
-        /* 사이드바 내부 콘텐츠 */
-        .sidebar-content {
-            width: 240px; 
-            overflow: hidden;
-            /* ✅ 부드러운 사라짐 효과를 위한 transition 추가 */
-            opacity: 1;
-            visibility: visible;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-        }
-        
-        /* ✅ 사이드바가 접혔을 때 내부 콘텐츠를 완전히 숨기는 스타일 추가 */
-        .sidebar.collapsed .sidebar-content {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        .sidebar h1 {
-            font-size: 24px;
-            color: #1a73e8;
-            margin-top: 0;
-            white-space: nowrap;
-        }
-        .sidebar .menu-item {
-            padding: 12px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #e0e0e0;
-            white-space: nowrap;
-        }
-        .sidebar .menu-item:hover {
-            background-color: #e8f0fe;
-        }
-
-        /* 사이드바 토글 버튼 스타일 */
-        #sidebar-toggle-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 30px;
-            height: 30px;
-            background-color: #e8f0fe;
-            border: 1px solid #d0d9e3;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            color: #1a73e8;
-            transition: transform 0.3s ease, right 0.3s ease;
-        }
-        .sidebar.collapsed #sidebar-toggle-btn {
-            right: -45px;
-            transform: rotate(180deg);
-        }
-
-        /* 메인 콘텐츠 영역 (헤더 + 지도) */
-        .main-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
+        /* 상단 헤더 스타일 */
         .header {
             background-color: #0077c2;
             color: white;
@@ -108,10 +30,14 @@
             text-align: center;
             font-size: 20px;
             font-weight: bold;
+            flex-shrink: 0;
         }
+
+        /* 지도를 감싸는 컨테이너 */
         #map-container {
-            flex-grow: 1;
+            flex-grow: 1; /* 남은 모든 공간을 차지 */
         }
+        
         #map {
             width: 100%;
             height: 100%;
@@ -167,20 +93,12 @@
 
 <div class="page-container">
     
-    <aside id="sidebar" class="sidebar">
-        <button id="sidebar-toggle-btn">«</button>
-        <div class="sidebar-content">
-            <h1>군산시 정보</h1>
-            <div class="menu-item">📍 행정복지센터</div>
-            <div class="menu-item">🍽️ 모범음식점</div>
-            <div class="menu-item">🌳 공원</div>
-            <div class="menu-item">📈 통계 정보</div>
-        </div>
-    </aside>
+    <header class="header">
+        군산시 행정복지센터 안내
+    </header>
 
-    <div class="main-content">
-        <header class="header">군산시 행정복지센터 안내</header>
-        <div id="map-container"><div id="map"></div></div>
+    <div id="map-container">
+        <div id="map"></div>
     </div>
 
 </div>
@@ -230,8 +148,6 @@
     const detailLat = document.getElementById('detail-lat');
     const detailLng = document.getElementById('detail-lng');
     const closeButton = document.getElementById('close-button');
-    const sidebar = document.getElementById('sidebar');
-    const toggleBtn = document.getElementById('sidebar-toggle-btn');
 
     // Supabase 클라이언트 초기화
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
@@ -283,10 +199,6 @@
         detailPanel.classList.remove('visible');
     });
     
-    toggleBtn.addEventListener('click', function() {
-        sidebar.classList.toggle('collapsed');
-    });
-
     // 메인 함수 실행
     main();
 </script>
