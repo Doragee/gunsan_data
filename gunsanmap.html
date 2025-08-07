@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>각 군산</title>
+    <title>데이터센터 각 군산</title>
     <style>
         /* 기본 스타일 초기화 */
         html, body {
@@ -13,17 +13,15 @@
             padding: 0;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-            background-color: #f8f9fa; /* 전체 배경색 추가 */
+            background-color: #f8f9fa;
         }
 
-        /* 전체 페이지를 감싸는 세로 Flexbox 컨테이너 */
         .page-container {
             display: flex;
             flex-direction: column;
             height: 100%;
         }
 
-        /* 상단 헤더 전체를 감싸는 컨테이너 */
         .top-header {
             padding: 20px;
             border-bottom: 1px solid #e0e0e0;
@@ -31,7 +29,6 @@
             background-color: white;
         }
 
-        /* 메인 타이틀 (로고) 스타일 */
         .main-title {
             font-size: 28px;
             font-weight: 900;
@@ -40,7 +37,6 @@
             color: #1a73e8;
         }
 
-        /* 내비게이션 메뉴 스타일 */
         .main-nav {
             display: flex;
             justify-content: center;
@@ -48,43 +44,33 @@
             border-top: 1px solid #e0e0e0;
             padding-top: 10px;
         }
-        .main-nav ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
+        .main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; }
+        .main-nav li { margin: 0 20px; }
+        .main-nav a { text-decoration: none; color: #333; font-weight: bold; font-size: 16px; padding: 10px 0; transition: color 0.2s; }
+        .main-nav a:hover { color: #1a73e8; }
+        
+        .location-filter-container {
+            margin-left: 30px; /* 메뉴와의 간격 */
         }
-        .main-nav li {
-            margin: 0 20px;
-        }
-        .main-nav a {
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-            font-size: 16px;
-            padding: 10px 0;
-            transition: color 0.2s;
-        }
-        .main-nav a:hover {
-            color: #1a73e8;
+        .location-select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
         }
 
-
-        /* 지도를 감싸는 컨테이너 */
         #map-container {
-            flex-grow: 1; /* 남은 모든 공간을 차지 */
-            /* ✅ 좌우 여백 추가 */
+            flex-grow: 1;
             padding: 0 20px;
         }
-        
         #map {
             width: 100%;
             height: 100%;
-            border: 1px solid #e0e0e0; /* 지도 테두리 추가 */
-            border-radius: 8px; /* 지도 모서리 둥글게 */
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
         }
 
-        /* 이름표(오버레이) 스타일 */
         .custom-overlay-label {
             position: absolute;
             background-color: white;
@@ -99,7 +85,6 @@
             cursor: pointer;
         }
 
-        /* 하단 패널 스타일 */
         .panel {
             position: fixed;
             bottom: -100%;
@@ -115,24 +100,11 @@
             z-index: 1000;
             transition: bottom 0.5s ease-in-out;
         }
-        .panel.visible {
-            bottom: 0;
-        }
-        .close-btn {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #555;
-        }
+        .panel.visible { bottom: 0; }
+        .close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #555; }
         
-        /* 지도 하단 정보 영역 스타일 추가 */
         .info-footer {
             flex-shrink: 0;
-            /* ✅ 하단 영역 높이 증가 */
             padding: 40px 20px; 
             border-top: 1px solid #e0e0e0;
             text-align: center;
@@ -144,17 +116,19 @@
 <body>
 
 <div class="page-container">
-    
     <header class="top-header">
-        <h1 class="main-title">각 군산</h1>
+        <h1 class="main-title">데이터센터 각 군산</h1>
         <nav class="main-nav">
             <ul>
-                <li><a href="#">홈</a></li>
-                <li><a href="#">뉴스</a></li>
-                <li><a href="#">행정복지센터</a></li>
-                <li><a href="#">문화/관광</a></li>
-                <li><a href="#">교통</a></li>
+                <li><a href="#">개요</a></li>
+                <li><a href="#">정책,소식</a></li>
+                <li><a href="#">공공정보</a></li>
             </ul>
+            <div class="location-filter-container">
+                <select id="location-filter" class="location-select">
+                    <option value="all">전체 보기</option>
+                </select>
+            </div>
         </nav>
     </header>
 
@@ -163,9 +137,8 @@
     </div>
 
     <footer class="info-footer">
-        <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 각 군산 프로젝트</p>
+        <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
     </footer>
-
 </div>
 
 <div id="detail-panel" class="panel">
@@ -188,47 +161,89 @@
     }
     CustomOverlay.prototype = new naver.maps.OverlayView();
     CustomOverlay.prototype.constructor = CustomOverlay;
-    CustomOverlay.prototype.onAdd = function() {
-        var overlayLayer = this.getPanes().overlayLayer;
-        overlayLayer.appendChild(this._element);
-    };
-    CustomOverlay.prototype.draw = function() {
-        if (!this.getMap()) { return; }
-        var projection = this.getProjection();
-        var position = this._position;
-        var pixelPosition = projection.fromCoordToOffset(position);
-        this._element.style.left = pixelPosition.x + 'px';
-        this._element.style.top = pixelPosition.y + 'px';
-    };
-    CustomOverlay.prototype.onRemove = function() {
-        this._element.parentElement.removeChild(this._element);
-    };
-    CustomOverlay.prototype.getElement = function() {
-        return this._element;
-    };
+    CustomOverlay.prototype.onAdd = function() { this.getPanes().overlayLayer.appendChild(this._element); };
+    CustomOverlay.prototype.draw = function() { if (!this.getMap()) { return; } var projection = this.getProjection(); var position = this._position; var pixelPosition = projection.fromCoordToOffset(position); this._element.style.left = pixelPosition.x + 'px'; this._element.style.top = pixelPosition.y + 'px'; };
+    CustomOverlay.prototype.onRemove = function() { this._element.parentElement.removeChild(this._element); };
+    CustomOverlay.prototype.getElement = function() { return this._element; };
 
-    // HTML 요소 변수 할당
+    // 전역 변수 선언
     const detailPanel = document.getElementById('detail-panel');
     const detailName = document.getElementById('detail-name');
     const detailLat = document.getElementById('detail-lat');
     const detailLng = document.getElementById('detail-lng');
     const closeButton = document.getElementById('close-button');
+    const locationFilter = document.getElementById('location-filter');
+
+    let map;
+    let allPlaces = [];
+    let currentOverlays = [];
 
     // Supabase 클라이언트 초기화
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8'; // 본인의 Supabase anon 키로 교체하세요
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
+    function clearOverlays() {
+        currentOverlays.forEach(overlay => {
+            overlay.setMap(null);
+        });
+        currentOverlays = [];
+    }
+
+    function drawOverlays(placesToDraw) {
+        clearOverlays();
+
+        if (!placesToDraw || placesToDraw.length === 0) {
+            return;
+        }
+
+        placesToDraw.forEach(place => {
+            const position = new naver.maps.LatLng(place.latitude, place.longitude);
+            const customOverlay = new CustomOverlay({
+                position: position,
+                content: `<div>${place.name}</div>`
+            });
+            customOverlay.setMap(map);
+            
+            customOverlay.getElement().addEventListener('click', function() {
+                detailName.textContent = place.name;
+                detailLat.textContent = place.latitude;
+                detailLng.textContent = place.longitude;
+                detailPanel.classList.add('visible');
+            });
+            
+            currentOverlays.push(customOverlay);
+        });
+    }
+
+    /**
+     * 드롭다운 메뉴를 동적으로 채우는 함수
+     * @param {Array} places - 전체 장소 데이터
+     */
+    function populateDropdown(places) {
+        // ✅ 'district' 대신 'name'을 사용해 중복되지 않는 지역 목록 생성
+        const districts = [...new Set(places.map(place => place.name))];
+        districts.sort();
+
+        districts.forEach(district => {
+            const option = document.createElement('option');
+            option.value = district;
+            option.textContent = district;
+            locationFilter.appendChild(option);
+        });
+    }
+
     // 메인 실행 함수
     async function main() {
-        const map = new naver.maps.Map('map', {
+        map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
             zoom: 12,
             mapDataControl: false
         });
 
-        const { data: places, error } = await supabaseClient
+        // ✅ 'district' 컬럼을 가져오는 부분을 삭제했습니다.
+        const { data, error } = await supabaseClient
             .from('administrative_welfare_centers')
             .select('name, latitude, longitude');
 
@@ -238,33 +253,30 @@
             return; 
         }
 
-        if (places) {
-            for (const place of places) {
-                const position = new naver.maps.LatLng(place.latitude, place.longitude);
-
-                const customOverlay = new CustomOverlay({
-                    position: position,
-                    content: `<div>${place.name}</div>`
-                });
-                customOverlay.setMap(map);
-                
-                customOverlay.getElement().addEventListener('click', function() {
-                    detailName.textContent = place.name;
-                    detailLat.textContent = place.latitude;
-                    detailLng.textContent = place.longitude;
-                    
-                    detailPanel.classList.add('visible');
-                });
-            }
-        }
+        allPlaces = data;
+        populateDropdown(allPlaces);
+        drawOverlays(allPlaces);
     }
 
     // 이벤트 리스너 등록
     closeButton.addEventListener('click', function() {
         detailPanel.classList.remove('visible');
     });
+
+    locationFilter.addEventListener('change', function() {
+        const selectedDistrict = this.value;
+        let filteredPlaces;
+
+        if (selectedDistrict === 'all') {
+            filteredPlaces = allPlaces;
+        } else {
+            // ✅ 'district' 대신 'name'으로 데이터 필터링
+            filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
+        }
+
+        drawOverlays(filteredPlaces);
+    });
     
-    // 메인 함수 실행
     main();
 </script>
 
