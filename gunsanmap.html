@@ -251,10 +251,7 @@
     let initialZoom;
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
-    // ✅ 오류 수정: 이 부분을 본인의 Supabase 'anon public' 키로 교체해주세요.
-    // Supabase 대시보드의 'API' 설정에서 확인하실 수 있습니다.
-    // 키가 올바르지 않으면 "Invalid API key" 오류가 발생합니다.
-    const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
@@ -368,6 +365,16 @@
 
         if (selectedDistrict === 'all') {
             map.morph(initialCenter, initialZoom);
+            detailPanel.classList.remove('visible'); // 전체 보기 시 패널 닫기
+        } else if (filteredPlaces.length > 0) {
+            const firstPlaceInDistrict = filteredPlaces[0];
+            const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
+            map.morph(newPosition, 15);
+
+            // ✅ 드롭다운 선택 시에도 오른쪽 패널을 열고 정보 표시
+            detailTitle.textContent = firstPlaceInDistrict.name;
+            detailContent.innerHTML = `<p><strong>위도:</strong> ${firstPlaceInDistrict.latitude}</p><p><strong>경도:</strong> ${firstPlaceInDistrict.longitude}</p>`;
+            detailPanel.classList.add('visible');
         }
     });
 
