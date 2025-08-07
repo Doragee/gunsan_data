@@ -127,24 +127,23 @@
             cursor: pointer;
         }
 
-        /* ✅ 1. 오른쪽 패널 스타일로 수정 */
         .panel {
             position: fixed;
             top: 0;
-            right: -400px; /* 처음에는 화면 오른쪽에 숨김 */
-            width: 380px;  /* 패널 너비 지정 */
-            height: 100%;  /* 패널 높이 100% */
+            right: -400px;
+            width: 380px;
+            height: 100%;
             background-color: white;
             padding: 20px;
-            padding-top: 60px; /* 닫기 버튼 공간 확보 */
-            box-shadow: -4px 0 12px rgba(0,0,0,0.1); /* 왼쪽 그림자 */
+            padding-top: 60px;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.1);
             box-sizing: border-box;
             z-index: 1000;
-            transition: right 0.4s ease-in-out; /* right 속성 애니메이션 */
+            transition: right 0.4s ease-in-out;
             overflow-y: auto;
         }
         .panel.visible {
-            right: 0; /* 화면 오른쪽에 보이도록 위치 변경 */
+            right: 0;
         }
         .close-btn { 
             position: absolute; 
@@ -214,7 +213,6 @@
     </footer>
 </div>
 
-<!-- ✅ 2. 오른쪽 패널 HTML 구조 (위치만 변경, 내용은 동일) -->
 <div id="detail-panel" class="panel">
     <button id="close-button" class="close-btn">&times;</button>
     <h2 id="detail-title"></h2>
@@ -225,9 +223,6 @@
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
 
 <script>
-    // JavaScript 로직은 이전 코드와 완전히 동일합니다.
-    // CSS 변경만으로 위치와 동작이 제어됩니다.
-
     function CustomOverlay(options) {
         this._element = document.createElement('div');
         this._element.innerHTML = options.content;
@@ -252,9 +247,14 @@
     let map;
     let allPlaces = [];
     let currentOverlays = [];
+    let initialCenter;
+    let initialZoom;
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
+    // ✅ 오류 수정: 이 부분을 본인의 Supabase 'anon public' 키로 교체해주세요.
+    // Supabase 대시보드의 'API' 설정에서 확인하실 수 있습니다.
+    // 키가 올바르지 않으면 "Invalid API key" 오류가 발생합니다.
+    const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
@@ -311,6 +311,10 @@
                 detailTitle.textContent = place.name;
                 detailContent.innerHTML = `<p><strong>위도:</strong> ${place.latitude}</p><p><strong>경도:</strong> ${place.longitude}</p>`;
                 detailPanel.classList.add('visible');
+                
+                map.morph(position, 15);
+
+                locationFilter.value = place.name;
             });
             
             currentOverlays.push(customOverlay);
@@ -334,13 +338,16 @@
             mapDataControl: false
         });
 
+        initialCenter = map.getCenter();
+        initialZoom = map.getZoom();
+
         const { data, error } = await supabaseClient
             .from('administrative_welfare_centers')
             .select('name, latitude, longitude');
 
         if (error) { 
             console.error('Error fetching data:', error);
-            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message);
             return; 
         }
 
@@ -356,7 +363,12 @@
         const filteredPlaces = (selectedDistrict === 'all')
             ? allPlaces
             : allPlaces.filter(place => place.name === selectedDistrict);
+        
         drawOverlays(filteredPlaces);
+
+        if (selectedDistrict === 'all') {
+            map.morph(initialCenter, initialZoom);
+        }
     });
 
     promptSendBtn.addEventListener('click', () => {
