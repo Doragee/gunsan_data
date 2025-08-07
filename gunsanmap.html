@@ -35,7 +35,7 @@
             text-align: center;
             margin: 0 0 20px 0;
             color: #1a73e8;
-            cursor: pointer; /* ✅ 클릭 가능하도록 커서 변경 */
+            cursor: pointer;
         }
 
         .main-nav {
@@ -61,6 +61,14 @@
             cursor: pointer;
         }
 
+        /* ✅ 1. 불필요한 래퍼(.main-view-container) 제거, map-wrapper 스타일 수정 */
+        #map-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
         #map-container {
             flex-grow: 1;
             padding: 0 20px;
@@ -71,6 +79,21 @@
             height: 100%;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
+        }
+
+        /* ✅ 2. 뉴스 컨테이너 스타일 수정 */
+        #news-container {
+            flex-grow: 1; /* 부모(.page-container)의 남은 공간을 모두 차지 */
+            padding: 30px 40px;
+            overflow-y: auto; /* 내용이 넘치면 스크롤바 자동 생성 */
+            background-color: white;
+            display: none; /* 기본적으로 숨김 */
+        }
+        #news-container h2 {
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
         }
 
         .prompt-container {
@@ -161,6 +184,46 @@
             white-space: pre-wrap;
             line-height: 1.6;
         }
+        
+        .news-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .news-item:last-child {
+            border-bottom: none;
+        }
+        .news-item h3 {
+            margin-bottom: 5px;
+            font-size: 18px;
+        }
+        .news-item h3 a {
+            text-decoration: none;
+            color: #1a73e8;
+        }
+        .news-item h3 a:hover {
+            text-decoration: underline;
+        }
+        .news-item .news-date {
+            font-size: 12px;
+            color: #888;
+            margin-top: 0;
+        }
+        .news-item p {
+            font-size: 14px;
+            color: #555;
+            margin: 10px 0 0 0;
+        }
+        .news-item .news-spot {
+            font-size: 13px;
+            color: #333;
+            background-color: #e8f0fe;
+            padding: 5px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
         .loader {
             border: 5px solid #f3f3f3;
             border-radius: 50%;
@@ -186,13 +249,11 @@
 
 <div class="page-container">
     <header class="top-header">
-        <!-- ✅ 1. 타이틀에 id 추가 -->
         <h1 id="main-title-btn" class="main-title">데이터센터 각 군산</h1>
         <nav class="main-nav">
             <ul>
-                <!-- ✅ 2. '개요' 메뉴에 id 추가 -->
                 <li><a href="#" id="overview-btn">개요</a></li>
-                <li><a href="#">정책,소식</a></li>
+                <li><a href="#" id="news-btn">정책,소식</a></li>
                 <li><a href="#">공공정보</a></li>
             </ul>
             <div class="location-filter-container">
@@ -203,17 +264,25 @@
         </nav>
     </header>
 
-    <div id="map-container">
-        <div id="map"></div>
-        <div class="prompt-container">
-            <input type="text" id="prompt-input" placeholder="군산에 대해 무엇이든 물어보세요...">
-            <button id="prompt-send-btn">↑</button>
+    <!-- ✅ 3. HTML 구조 단순화 -->
+    <div id="map-wrapper">
+        <div id="map-container">
+            <div id="map"></div>
+            <div class="prompt-container">
+                <input type="text" id="prompt-input" placeholder="군산에 대해 무엇이든 물어보세요...">
+                <button id="prompt-send-btn">↑</button>
+            </div>
         </div>
+        <footer class="info-footer">
+            <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
+        </footer>
     </div>
 
-    <footer class="info-footer">
-        <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
-    </footer>
+    <div id="news-container">
+        <h2>정책, 소식</h2>
+        <div id="news-content"></div>
+    </div>
+
 </div>
 
 <div id="detail-panel" class="panel">
@@ -246,9 +315,13 @@
     const locationFilter = document.getElementById('location-filter');
     const promptInput = document.getElementById('prompt-input');
     const promptSendBtn = document.getElementById('prompt-send-btn');
-    // ✅ 3. 새로 추가된 요소들을 변수에 할당
     const mainTitleBtn = document.getElementById('main-title-btn');
     const overviewBtn = document.getElementById('overview-btn');
+    const newsBtn = document.getElementById('news-btn');
+    const mapWrapper = document.getElementById('map-wrapper');
+    const newsContainer = document.getElementById('news-container');
+    const newsContent = document.getElementById('news-content');
+
 
     let map;
     let allPlaces = [];
@@ -316,7 +389,6 @@
                 detailPanel.classList.add('visible');
                 
                 map.morph(position, 15);
-
                 locationFilter.value = place.name;
             });
             
@@ -334,12 +406,51 @@
         });
     }
 
-    // ✅ 4. '전체 보기' 상태로 되돌리는 함수 생성
     function resetToInitialView() {
-        locationFilter.value = 'all'; // 드롭다운 값을 '전체 보기'로 변경
-        drawOverlays(allPlaces); // 모든 장소를 다시 그림
-        map.morph(initialCenter, initialZoom); // 지도를 초기 상태로 되돌림
-        detailPanel.classList.remove('visible'); // 패널 닫기
+        newsContainer.style.display = 'none';
+        mapWrapper.style.display = 'flex';
+
+        locationFilter.value = 'all';
+        drawOverlays(allPlaces);
+        map.morph(initialCenter, initialZoom);
+        detailPanel.classList.remove('visible');
+    }
+
+    async function fetchAndShowNews() {
+        mapWrapper.style.display = 'none';
+        newsContainer.style.display = 'block';
+        detailPanel.classList.remove('visible');
+        newsContent.innerHTML = '<div class="loader"></div>';
+
+        const { data: newsItems, error } = await supabaseClient
+            .from('gunsan_news')
+            .select('title, date, link, summary, spot')
+            .order('date', { ascending: false });
+
+        // ✅ 콘솔 로그 제거
+        if (error) {
+            console.error("News fetch error:", error);
+            newsContent.innerHTML = "<p>소식을 불러오는 중 오류가 발생했습니다.</p>";
+            return;
+        }
+
+        if (!newsItems || newsItems.length === 0) {
+            newsContent.innerHTML = "<p>새로운 소식이 없습니다.</p>";
+            return;
+        }
+
+        let newsHtml = '';
+        newsItems.forEach(item => {
+            newsHtml += `
+                <div class="news-item">
+                    <h3><a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>
+                    <p class="news-date">${new Date(item.date).toLocaleDateString()}</p>
+                    <p>${item.summary}</p>
+                    <p class="news-spot"><strong>관련 장소:</strong> ${item.spot || '정보 없음'}</p>
+                </div>
+            `;
+        });
+        newsContent.innerHTML = newsHtml;
     }
 
     async function main() {
@@ -370,10 +481,11 @@
     closeButton.addEventListener('click', () => detailPanel.classList.remove('visible'));
 
     locationFilter.addEventListener('change', function() {
+        resetToInitialView();
         const selectedDistrict = this.value;
 
         if (selectedDistrict === 'all') {
-            resetToInitialView(); // '전체 보기' 함수 호출
+            // handled by resetToInitialView
         } else {
             const filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
             drawOverlays(filteredPlaces);
@@ -404,11 +516,15 @@
         }
     });
     
-    // ✅ 5. 타이틀과 '개요' 메뉴에 클릭 이벤트 리스너 추가
     mainTitleBtn.addEventListener('click', resetToInitialView);
     overviewBtn.addEventListener('click', function(e) {
-        e.preventDefault(); // a 태그의 기본 동작(페이지 이동) 방지
+        e.preventDefault();
         resetToInitialView();
+    });
+
+    newsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        fetchAndShowNews();
     });
 
     main();
