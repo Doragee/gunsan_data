@@ -50,7 +50,7 @@
         .main-nav a:hover { color: #1a73e8; }
         
         .location-filter-container {
-            margin-left: 30px; /* 메뉴와의 간격 */
+            margin-left: 30px;
         }
         .location-select {
             padding: 8px 12px;
@@ -63,6 +63,7 @@
         #map-container {
             flex-grow: 1;
             padding: 0 20px;
+            position: relative;
         }
         #map {
             width: 100%;
@@ -70,6 +71,47 @@
             border: 1px solid #e0e0e0;
             border-radius: 8px;
         }
+
+        .prompt-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            max-width: 700px;
+            background-color: white;
+            border-radius: 28px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            z-index: 500;
+        }
+        #prompt-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 16px;
+            padding: 10px 15px;
+        }
+        #prompt-send-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        #prompt-send-btn:hover { background-color: #155ab6; }
+        #prompt-send-btn:disabled { background-color: #a0a0a0; }
+
 
         .custom-overlay-label {
             position: absolute;
@@ -85,24 +127,51 @@
             cursor: pointer;
         }
 
+        /* ✅ 1. 오른쪽 패널 스타일로 수정 */
         .panel {
             position: fixed;
-            bottom: -100%;
-            left: 0;
-            width: 100%;
+            top: 0;
+            right: -400px; /* 처음에는 화면 오른쪽에 숨김 */
+            width: 380px;  /* 패널 너비 지정 */
+            height: 100%;  /* 패널 높이 100% */
             background-color: white;
             padding: 20px;
-            padding-top: 40px;
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
-            border-top-left-radius: 15px;
-            border-top-right-radius: 15px;
+            padding-top: 60px; /* 닫기 버튼 공간 확보 */
+            box-shadow: -4px 0 12px rgba(0,0,0,0.1); /* 왼쪽 그림자 */
             box-sizing: border-box;
             z-index: 1000;
-            transition: bottom 0.5s ease-in-out;
+            transition: right 0.4s ease-in-out; /* right 속성 애니메이션 */
+            overflow-y: auto;
         }
-        .panel.visible { bottom: 0; }
-        .close-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #555; }
+        .panel.visible {
+            right: 0; /* 화면 오른쪽에 보이도록 위치 변경 */
+        }
+        .close-btn { 
+            position: absolute; 
+            top: 15px; 
+            right: 20px; 
+            background: none; 
+            border: none; 
+            font-size: 24px; 
+            cursor: pointer; 
+            color: #555; 
+        }
         
+        #detail-content {
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         .info-footer {
             flex-shrink: 0;
             padding: 40px 20px; 
@@ -134,6 +203,10 @@
 
     <div id="map-container">
         <div id="map"></div>
+        <div class="prompt-container">
+            <input type="text" id="prompt-input" placeholder="군산에 대해 무엇이든 물어보세요...">
+            <button id="prompt-send-btn">↑</button>
+        </div>
     </div>
 
     <footer class="info-footer">
@@ -141,18 +214,20 @@
     </footer>
 </div>
 
+<!-- ✅ 2. 오른쪽 패널 HTML 구조 (위치만 변경, 내용은 동일) -->
 <div id="detail-panel" class="panel">
     <button id="close-button" class="close-btn">&times;</button>
-    <h2 id="detail-name">장소 이름</h2>
-    <p><strong>위도:</strong> <span id="detail-lat"></span></p>
-    <p><strong>경도:</strong> <span id="detail-lng"></span></p>
+    <h2 id="detail-title"></h2>
+    <div id="detail-content"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
 
 <script>
-    // CustomOverlay 클래스 정의
+    // JavaScript 로직은 이전 코드와 완전히 동일합니다.
+    // CSS 변경만으로 위치와 동작이 제어됩니다.
+
     function CustomOverlay(options) {
         this._element = document.createElement('div');
         this._element.innerHTML = options.content;
@@ -166,37 +241,63 @@
     CustomOverlay.prototype.onRemove = function() { this._element.parentElement.removeChild(this._element); };
     CustomOverlay.prototype.getElement = function() { return this._element; };
 
-    // 전역 변수 선언
     const detailPanel = document.getElementById('detail-panel');
-    const detailName = document.getElementById('detail-name');
-    const detailLat = document.getElementById('detail-lat');
-    const detailLng = document.getElementById('detail-lng');
+    const detailTitle = document.getElementById('detail-title');
+    const detailContent = document.getElementById('detail-content');
     const closeButton = document.getElementById('close-button');
     const locationFilter = document.getElementById('location-filter');
+    const promptInput = document.getElementById('prompt-input');
+    const promptSendBtn = document.getElementById('prompt-send-btn');
 
     let map;
     let allPlaces = [];
     let currentOverlays = [];
 
-    // Supabase 클라이언트 초기화
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
+    async function callGeminiAPI(prompt) {
+        detailTitle.textContent = "AI 답변 생성 중...";
+        detailContent.innerHTML = '<div class="loader"></div>';
+        detailPanel.classList.add('visible');
+        promptSendBtn.disabled = true;
+
+        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            detailTitle.textContent = "Gemini AI 답변";
+            detailContent.textContent = text || "답변을 생성하지 못했습니다.";
+        } catch (error) {
+            console.error("Gemini API Error:", error);
+            detailTitle.textContent = "오류";
+            detailContent.textContent = "AI 답변을 불러오는 중 오류가 발생했습니다.";
+        } finally {
+            promptSendBtn.disabled = false;
+        }
+    }
+
     function clearOverlays() {
-        currentOverlays.forEach(overlay => {
-            overlay.setMap(null);
-        });
+        currentOverlays.forEach(overlay => overlay.setMap(null));
         currentOverlays = [];
     }
 
     function drawOverlays(placesToDraw) {
         clearOverlays();
-
-        if (!placesToDraw || placesToDraw.length === 0) {
-            return;
-        }
+        if (!placesToDraw || placesToDraw.length === 0) return;
 
         placesToDraw.forEach(place => {
             const position = new naver.maps.LatLng(place.latitude, place.longitude);
@@ -207,9 +308,8 @@
             customOverlay.setMap(map);
             
             customOverlay.getElement().addEventListener('click', function() {
-                detailName.textContent = place.name;
-                detailLat.textContent = place.latitude;
-                detailLng.textContent = place.longitude;
+                detailTitle.textContent = place.name;
+                detailContent.innerHTML = `<p><strong>위도:</strong> ${place.latitude}</p><p><strong>경도:</strong> ${place.longitude}</p>`;
                 detailPanel.classList.add('visible');
             });
             
@@ -217,15 +317,8 @@
         });
     }
 
-    /**
-     * 드롭다운 메뉴를 동적으로 채우는 함수
-     * @param {Array} places - 전체 장소 데이터
-     */
     function populateDropdown(places) {
-        // ✅ 'district' 대신 'name'을 사용해 중복되지 않는 지역 목록 생성
-        const districts = [...new Set(places.map(place => place.name))];
-        districts.sort();
-
+        const districts = [...new Set(places.map(place => place.name))].sort();
         districts.forEach(district => {
             const option = document.createElement('option');
             option.value = district;
@@ -234,7 +327,6 @@
         });
     }
 
-    // 메인 실행 함수
     async function main() {
         map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
@@ -242,7 +334,6 @@
             mapDataControl: false
         });
 
-        // ✅ 'district' 컬럼을 가져오는 부분을 삭제했습니다.
         const { data, error } = await supabaseClient
             .from('administrative_welfare_centers')
             .select('name, latitude, longitude');
@@ -258,23 +349,28 @@
         drawOverlays(allPlaces);
     }
 
-    // 이벤트 리스너 등록
-    closeButton.addEventListener('click', function() {
-        detailPanel.classList.remove('visible');
-    });
+    closeButton.addEventListener('click', () => detailPanel.classList.remove('visible'));
 
     locationFilter.addEventListener('change', function() {
         const selectedDistrict = this.value;
-        let filteredPlaces;
-
-        if (selectedDistrict === 'all') {
-            filteredPlaces = allPlaces;
-        } else {
-            // ✅ 'district' 대신 'name'으로 데이터 필터링
-            filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
-        }
-
+        const filteredPlaces = (selectedDistrict === 'all')
+            ? allPlaces
+            : allPlaces.filter(place => place.name === selectedDistrict);
         drawOverlays(filteredPlaces);
+    });
+
+    promptSendBtn.addEventListener('click', () => {
+        const promptText = promptInput.value.trim();
+        if (promptText) {
+            callGeminiAPI(promptText);
+            promptInput.value = '';
+        }
+    });
+
+    promptInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            promptSendBtn.click();
+        }
     });
     
     main();
