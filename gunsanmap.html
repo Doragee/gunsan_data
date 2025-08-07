@@ -35,6 +35,7 @@
             text-align: center;
             margin: 0 0 20px 0;
             color: #1a73e8;
+            cursor: pointer; /* ✅ 클릭 가능하도록 커서 변경 */
         }
 
         .main-nav {
@@ -185,10 +186,12 @@
 
 <div class="page-container">
     <header class="top-header">
-        <h1 class="main-title">데이터센터 각 군산</h1>
+        <!-- ✅ 1. 타이틀에 id 추가 -->
+        <h1 id="main-title-btn" class="main-title">데이터센터 각 군산</h1>
         <nav class="main-nav">
             <ul>
-                <li><a href="#">개요</a></li>
+                <!-- ✅ 2. '개요' 메뉴에 id 추가 -->
+                <li><a href="#" id="overview-btn">개요</a></li>
                 <li><a href="#">정책,소식</a></li>
                 <li><a href="#">공공정보</a></li>
             </ul>
@@ -243,6 +246,9 @@
     const locationFilter = document.getElementById('location-filter');
     const promptInput = document.getElementById('prompt-input');
     const promptSendBtn = document.getElementById('prompt-send-btn');
+    // ✅ 3. 새로 추가된 요소들을 변수에 할당
+    const mainTitleBtn = document.getElementById('main-title-btn');
+    const overviewBtn = document.getElementById('overview-btn');
 
     let map;
     let allPlaces = [];
@@ -328,6 +334,14 @@
         });
     }
 
+    // ✅ 4. '전체 보기' 상태로 되돌리는 함수 생성
+    function resetToInitialView() {
+        locationFilter.value = 'all'; // 드롭다운 값을 '전체 보기'로 변경
+        drawOverlays(allPlaces); // 모든 장소를 다시 그림
+        map.morph(initialCenter, initialZoom); // 지도를 초기 상태로 되돌림
+        detailPanel.classList.remove('visible'); // 패널 닫기
+    }
+
     async function main() {
         map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
@@ -357,24 +371,22 @@
 
     locationFilter.addEventListener('change', function() {
         const selectedDistrict = this.value;
-        const filteredPlaces = (selectedDistrict === 'all')
-            ? allPlaces
-            : allPlaces.filter(place => place.name === selectedDistrict);
-        
-        drawOverlays(filteredPlaces);
 
         if (selectedDistrict === 'all') {
-            map.morph(initialCenter, initialZoom);
-            detailPanel.classList.remove('visible'); // 전체 보기 시 패널 닫기
-        } else if (filteredPlaces.length > 0) {
-            const firstPlaceInDistrict = filteredPlaces[0];
-            const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
-            map.morph(newPosition, 15);
+            resetToInitialView(); // '전체 보기' 함수 호출
+        } else {
+            const filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
+            drawOverlays(filteredPlaces);
 
-            // ✅ 드롭다운 선택 시에도 오른쪽 패널을 열고 정보 표시
-            detailTitle.textContent = firstPlaceInDistrict.name;
-            detailContent.innerHTML = `<p><strong>위도:</strong> ${firstPlaceInDistrict.latitude}</p><p><strong>경도:</strong> ${firstPlaceInDistrict.longitude}</p>`;
-            detailPanel.classList.add('visible');
+            if (filteredPlaces.length > 0) {
+                const firstPlaceInDistrict = filteredPlaces[0];
+                const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
+                map.morph(newPosition, 15);
+
+                detailTitle.textContent = firstPlaceInDistrict.name;
+                detailContent.innerHTML = `<p><strong>위도:</strong> ${firstPlaceInDistrict.latitude}</p><p><strong>경도:</strong> ${firstPlaceInDistrict.longitude}</p>`;
+                detailPanel.classList.add('visible');
+            }
         }
     });
 
@@ -392,6 +404,13 @@
         }
     });
     
+    // ✅ 5. 타이틀과 '개요' 메뉴에 클릭 이벤트 리스너 추가
+    mainTitleBtn.addEventListener('click', resetToInitialView);
+    overviewBtn.addEventListener('click', function(e) {
+        e.preventDefault(); // a 태그의 기본 동작(페이지 이동) 방지
+        resetToInitialView();
+    });
+
     main();
 </script>
 
