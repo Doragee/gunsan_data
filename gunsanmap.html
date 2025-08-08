@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>데이터센터 각 군산</title>
+    <title>공공데이터 AI, 각 군산</title>
     <style>
         /* 기본 스타일 초기화 */
         html, body {
@@ -107,6 +107,25 @@
             font-size: 24px;
             border-bottom: 2px solid #333;
             padding-bottom: 10px;
+        }
+
+        /* ✅ 1. 체크박스 필터 컨테이너 스타일 */
+        .filter-checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+        .filter-checkbox-container label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .filter-checkbox-container input {
+            margin-right: 5px;
         }
 
         .prompt-container {
@@ -259,7 +278,6 @@
             color: #555;
         }
 
-        /* ✅ 1. 카드 그리드 레이아웃 스타일 (공용) */
         .content-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -331,7 +349,7 @@
 
 <div class="page-container">
     <header class="top-header">
-        <h1 id="main-title-btn" class="main-title">데이터센터 각 군산</h1>
+        <h1 id="main-title-btn" class="main-title">공공데이터 AI, 각 군산</h1>
         <nav class="main-nav">
             <ul>
                 <li><a href="#" id="overview-btn" class="nav-link active">개요</a></li>
@@ -361,6 +379,8 @@
 
     <div id="news-container">
         <h2>정책, 소식</h2>
+        <!-- ✅ 2. 체크박스 필터 영역 추가 -->
+        <div id="filter-checkboxes" class="filter-checkbox-container"></div>
         <div id="news-content"></div>
     </div>
 
@@ -405,10 +425,13 @@
     const newsContent = document.getElementById('news-content');
     const navLinks = document.querySelectorAll('.nav-link');
     const locationFilterContainer = document.querySelector('.location-filter-container');
+    const filterCheckboxes = document.getElementById('filter-checkboxes');
 
 
     let map;
     let allPlaces = [];
+    let allNews = [];
+    let allFacilities = [];
     let currentOverlays = [];
     let initialCenter;
     let initialZoom;
@@ -426,7 +449,7 @@
         promptSendBtn.disabled = true;
 
         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-        const apiKey = "";
+        const apiKey = "AIzaSyCR5ULonwEC5cJ4x-iskTNxoOZvNn3mF7E";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
         try {
@@ -528,11 +551,20 @@
             
             facilities.forEach(facility => {
                 const feeText = facility.paid_service ? (facility.paid_service === true ? '유료' : facility.paid_service) : '무료';
+                
+                let weekendHoursHtml = '';
+                if (facility.weekend_opening_hour !== '00:00:00' || facility.weekend_closing_hour !== '00:00:00') {
+                    const weekendHours = (facility.weekend_opening_hour && facility.weekend_closing_hour) ? `${facility.weekend_opening_hour} ~ ${facility.weekend_closing_hour}` : '';
+                    if (weekendHours) {
+                       weekendHoursHtml = `<li><strong>주말시간:</strong> <span>${weekendHours}</span></li>`;
+                    }
+                }
+
                 finalHtml += `
                     <ul>
                         <li><strong>시설명:</strong> <span>${facility.facility_name || '정보없음'}</span></li>
                         <li><strong>주중시간:</strong> <span>${facility.weekday_opening_hour || ''} ~ ${facility.weekday_closing_hour || ''}</span></li>
-                        <li><strong>주말시간:</strong> <span>${facility.weekend_opening_hour || ''} ~ ${facility.weekend_closing_hour || ''}</span></li>
+                        ${weekendHoursHtml}
                         <li><strong>이용요금:</strong> <span>${feeText}</span></li>
                         <li><strong>담당부서:</strong> <span>${facility.department_in_charge || '정보없음'}</span></li>
                         <li><strong>연락처:</strong> <span>${facility.contact_number || '-'}</span></li>
@@ -597,32 +629,46 @@
         detailPanel.classList.remove('visible');
     }
 
-    // ✅ 2. '정책,소식' 뷰 함수 수정
-    async function fetchAndShowNews() {
-        mapWrapper.style.display = 'none';
-        newsContainer.style.display = 'block';
-        detailPanel.classList.remove('visible');
-        updateActiveNav(newsBtn);
-        locationFilterContainer.style.display = 'none';
-        newsContainer.querySelector('h2').textContent = '정책, 소식';
-        newsContent.innerHTML = '<div class="loader"></div>';
+    // ✅ 3. 체크박스 생성 및 이벤트 핸들러 함수 (복원)
+    function setupCheckboxFilters(data, renderFunction) {
+        filterCheckboxes.innerHTML = '';
+        const spots = [...new Set(data.map(item => item.spot).filter(Boolean))].sort();
 
-        const { data: newsItems, error } = await supabaseClient
-            .from('gunsan_news')
-            .select('title, date, link, summary, spot')
-            .order('date', { ascending: false });
+        const allLabel = document.createElement('label');
+        allLabel.innerHTML = `<input type="checkbox" value="all" checked> <strong>전체</strong>`;
+        filterCheckboxes.appendChild(allLabel);
 
-        if (error) {
-            console.error("News fetch error:", error);
-            newsContent.innerHTML = "<p>소식을 불러오는 중 오류가 발생했습니다.</p>";
-            return;
-        }
+        spots.forEach(spot => {
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" value="${spot}" checked> ${spot}`;
+            filterCheckboxes.appendChild(label);
+        });
 
+        filterCheckboxes.addEventListener('change', (event) => {
+            const checkboxes = filterCheckboxes.querySelectorAll('input[type="checkbox"]');
+            const allCheckbox = checkboxes[0];
+            
+            if (event.target.value === 'all') {
+                checkboxes.forEach(cb => cb.checked = allCheckbox.checked);
+            } else {
+                allCheckbox.checked = [...checkboxes].slice(1).every(cb => cb.checked);
+            }
+
+            const selectedSpots = [...checkboxes]
+                .filter(cb => cb.checked && cb.value !== 'all')
+                .map(cb => cb.value);
+            
+            const filteredData = allCheckbox.checked ? data : data.filter(item => selectedSpots.includes(item.spot));
+            renderFunction(filteredData);
+        });
+    }
+
+    // ✅ 4. 뉴스 렌더링 함수 (복원)
+    function renderNewsCards(newsItems) {
         if (!newsItems || newsItems.length === 0) {
-            newsContent.innerHTML = "<p>새로운 소식이 없습니다.</p>";
+            newsContent.innerHTML = "<p>선택된 지역에 해당하는 소식이 없습니다.</p>";
             return;
         }
-
         let newsHtml = '<div class="content-grid">';
         newsItems.forEach(item => {
             newsHtml += `
@@ -637,6 +683,61 @@
         newsHtml += '</div>';
         newsContent.innerHTML = newsHtml;
     }
+
+    // ✅ 5. 시설 렌더링 함수 (복원)
+    function renderFacilityCards(facilities) {
+        if (!facilities || facilities.length === 0) {
+            newsContent.innerHTML = "<p>선택된 지역에 해당하는 공공정보가 없습니다.</p>";
+            return;
+        }
+        let facilitiesHtml = '<div class="content-grid">';
+        facilities.forEach(item => {
+            const feeText = item.paid_service ? (item.paid_service === true ? '유료' : item.paid_service) : '무료';
+            const weekdayHours = (item.weekday_opening_hour && item.weekday_closing_hour) ? `${item.weekday_opening_hour} ~ ${item.weekday_closing_hour}` : '정보없음';
+            let weekendHoursHtml = '';
+            if (item.weekend_opening_hour !== '00:00:00' || item.weekend_closing_hour !== '00:00:00') {
+                const weekendHours = (item.weekend_opening_hour && item.weekend_closing_hour) ? `${item.weekend_opening_hour} ~ ${item.weekend_closing_hour}` : '정보없음';
+                weekendHoursHtml = `<p><strong>주말:</strong> ${weekendHours}</p>`;
+            }
+            facilitiesHtml += `
+                <div class="content-card">
+                    <h3>${item.facility_name}</h3>
+                    <p><strong>주중:</strong> ${weekdayHours}</p>
+                    ${weekendHoursHtml}
+                    <p><strong>요금:</strong> ${feeText}</p>
+                    <p><strong>담당:</strong> ${item.department_in_charge || '정보 없음'} (${item.contact_number || '-'})</p>
+                    <p class="card-footer"><strong>관련 지역:</strong> ${item.spot || '정보 없음'}</p>
+                </div>
+            `;
+        });
+        facilitiesHtml += '</div>';
+        newsContent.innerHTML = facilitiesHtml;
+    }
+
+    async function fetchAndShowNews() {
+        mapWrapper.style.display = 'none';
+        newsContainer.style.display = 'block';
+        detailPanel.classList.remove('visible');
+        updateActiveNav(newsBtn);
+        locationFilterContainer.style.display = 'none';
+        newsContainer.querySelector('h2').textContent = '정책, 소식';
+        newsContent.innerHTML = '<div class="loader"></div>';
+
+        const { data, error } = await supabaseClient
+            .from('gunsan_news')
+            .select('title, date, link, summary, spot')
+            .order('date', { ascending: false });
+
+        if (error) {
+            console.error("News fetch error:", error);
+            newsContent.innerHTML = "<p>소식을 불러오는 중 오류가 발생했습니다.</p>";
+            return;
+        }
+        
+        allNews = data;
+        setupCheckboxFilters(allNews, renderNewsCards);
+        renderNewsCards(allNews);
+    }
     
     async function showPublicInfoView() {
         mapWrapper.style.display = 'none';
@@ -647,7 +748,7 @@
         newsContainer.querySelector('h2').textContent = '공공정보';
         newsContent.innerHTML = '<div class="loader"></div>';
 
-        const { data: facilities, error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('publicFacilities')
             .select('facility_name, spot, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
             .order('facility_name', { ascending: true });
@@ -657,31 +758,10 @@
             newsContent.innerHTML = "<p>공공정보를 불러오는 중 오류가 발생했습니다.</p>";
             return;
         }
-
-        if (!facilities || facilities.length === 0) {
-            newsContent.innerHTML = "<p>등록된 공공정보가 없습니다.</p>";
-            return;
-        }
-
-        let facilitiesHtml = '<div class="content-grid">';
-        facilities.forEach(item => {
-            const feeText = item.paid_service ? (item.paid_service === true ? '유료' : item.paid_service) : '무료';
-            const weekdayHours = (item.weekday_opening_hour && item.weekday_closing_hour) ? `${item.weekday_opening_hour} ~ ${item.weekday_closing_hour}` : '정보없음';
-            const weekendHours = (item.weekend_opening_hour && item.weekend_closing_hour) ? `${item.weekend_opening_hour} ~ ${item.weekend_closing_hour}` : '정보없음';
-
-            facilitiesHtml += `
-                <div class="content-card">
-                    <h3>${item.facility_name}</h3>
-                    <p><strong>주중:</strong> ${weekdayHours}</p>
-                    <p><strong>주말:</strong> ${weekendHours}</p>
-                    <p><strong>요금:</strong> ${feeText}</p>
-                    <p><strong>담당:</strong> ${item.department_in_charge || '정보 없음'} (${item.contact_number || '-'})</p>
-                    <p class="card-footer"><strong>관련 지역:</strong> ${item.spot || '정보 없음'}</p>
-                </div>
-            `;
-        });
-        facilitiesHtml += '</div>';
-        newsContent.innerHTML = facilitiesHtml;
+        
+        allFacilities = data;
+        setupCheckboxFilters(allFacilities, renderFacilityCards);
+        renderFacilityCards(allFacilities);
     }
 
     async function main() {
