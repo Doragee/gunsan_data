@@ -245,19 +245,29 @@
             margin: 0;
         }
         .facility-section li {
-            padding: 3px 0;
+            padding: 4px 0;
             font-size: 14px;
+            display: flex;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .facility-section li:last-child {
+            border-bottom: none;
+        }
+        .facility-section li strong {
+            width: 80px;
+            flex-shrink: 0;
+            color: #555;
         }
 
-        .news-item {
+        .news-item, .facility-list-item {
             margin-bottom: 15px;
             padding-bottom: 15px;
             border-bottom: 1px solid #eee;
         }
-        .news-item:last-child {
+        .news-item:last-child, .facility-list-item:last-child {
             border-bottom: none;
         }
-        .news-item h3 {
+        .news-item h3, .facility-list-item h3 {
             margin-bottom: 5px;
             font-size: 18px;
         }
@@ -273,12 +283,12 @@
             color: #888;
             margin-top: 0;
         }
-        .news-item p {
+        .news-item p, .facility-list-item p {
             font-size: 14px;
             color: #555;
             margin: 10px 0 0 0;
         }
-        .news-item .news-spot {
+        .news-item .news-spot, .facility-list-item .facility-spot {
             font-size: 13px;
             color: #333;
             background-color: #e8f0fe;
@@ -477,7 +487,7 @@
                 .limit(5),
             supabaseClient
                 .from('publicFacilities')
-                .select('facility_name, latitude, longitude')
+                .select('facility_name, latitude, longitude, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
                 .eq('spot', placeName)
         ]);
         
@@ -507,11 +517,21 @@
         } else if (facilities && facilities.length > 0) {
             finalHtml += '<div class="facility-section">';
             finalHtml += '<h4>주요 시설</h4>';
-            finalHtml += '<ul>';
+            
             facilities.forEach(facility => {
-                finalHtml += `<li>${facility.facility_name}</li>`;
+                const feeText = facility.paid_service ? (facility.paid_service === true ? '유료' : facility.paid_service) : '무료';
+                finalHtml += `
+                    <ul>
+                        <li><strong>시설명:</strong> <span>${facility.facility_name || '정보없음'}</span></li>
+                        <li><strong>주중시간:</strong> <span>${facility.weekday_opening_hour || ''} ~ ${facility.weekday_closing_hour || ''}</span></li>
+                        <li><strong>주말시간:</strong> <span>${facility.weekend_opening_hour || ''} ~ ${facility.weekend_closing_hour || ''}</span></li>
+                        <li><strong>이용요금:</strong> <span>${feeText}</span></li>
+                        <li><strong>담당부서:</strong> <span>${facility.department_in_charge || '정보없음'}</span></li>
+                        <li><strong>연락처:</strong> <span>${facility.contact_number || '-'}</span></li>
+                    </ul>
+                `;
             });
-            finalHtml += '</ul></div>';
+            finalHtml += '</div>';
         }
 
         detailContent.innerHTML = finalHtml;
@@ -607,14 +627,51 @@
         newsContent.innerHTML = newsHtml;
     }
     
-    function showPublicInfoView() {
+    // ✅ 2. '공공정보' 뷰를 위한 함수 수정
+    async function showPublicInfoView() {
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
         detailPanel.classList.remove('visible');
         updateActiveNav(publicInfoBtn);
         locationFilterContainer.style.display = 'none';
         newsContainer.querySelector('h2').textContent = '공공정보';
-        newsContent.innerHTML = "<p>'공공정보' 메뉴는 현재 준비 중입니다.</p>";
+        newsContent.innerHTML = '<div class="loader"></div>';
+
+        const { data: facilities, error } = await supabaseClient
+            .from('publicFacilities')
+            .select('facility_name, spot, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
+            .order('facility_name', { ascending: true });
+        
+        if (error) {
+            console.error("Public facilities fetch error:", error);
+            newsContent.innerHTML = "<p>공공정보를 불러오는 중 오류가 발생했습니다.</p>";
+            return;
+        }
+
+        if (!facilities || facilities.length === 0) {
+            newsContent.innerHTML = "<p>등록된 공공정보가 없습니다.</p>";
+            return;
+        }
+
+        let facilitiesHtml = '';
+        facilities.forEach(item => {
+            const feeText = item.paid_service ? (item.paid_service === true ? '유료' : item.paid_service) : '무료';
+            const weekdayHours = (item.weekday_opening_hour && item.weekday_closing_hour) ? `${item.weekday_opening_hour} ~ ${item.weekday_closing_hour}` : '정보없음';
+            const weekendHours = (item.weekend_opening_hour && item.weekend_closing_hour) ? `${item.weekend_opening_hour} ~ ${item.weekend_closing_hour}` : '정보없음';
+
+            facilitiesHtml += `
+                <div class="facility-list-item">
+                    <h3>${item.facility_name}</h3>
+                    <p><strong>주중 운영:</strong> ${weekdayHours}</p>
+                    <p><strong>주말 운영:</strong> ${weekendHours}</p>
+                    <p><strong>이용 요금:</strong> ${feeText}</p>
+                    <p><strong>담당부서:</strong> ${item.department_in_charge || '정보 없음'}</p>
+                    <p><strong>연락처:</strong> ${item.contact_number || '-'}</p>
+                    <p class="facility-spot"><strong>관련 지역:</strong> ${item.spot || '정보 없음'}</p>
+                </div>
+            `;
+        });
+        newsContent.innerHTML = facilitiesHtml;
     }
 
     async function main() {
