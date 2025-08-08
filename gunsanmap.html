@@ -47,8 +47,23 @@
         }
         .main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; }
         .main-nav li { margin: 0 20px; }
-        .main-nav a { text-decoration: none; color: #333; font-weight: bold; font-size: 16px; padding: 10px 0; transition: color 0.2s; }
-        .main-nav a:hover { color: #1a73e8; }
+        .main-nav a {
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 10px 0;
+            transition: color 0.2s, border-bottom-color 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .main-nav a:hover {
+            color: #1a73e8;
+        }
+        
+        .main-nav a.active {
+            color: #1a73e8;
+            border-bottom-color: #1a73e8;
+        }
         
         .location-filter-container {
             margin-left: 30px;
@@ -61,7 +76,6 @@
             cursor: pointer;
         }
 
-        /* ✅ 1. 불필요한 래퍼(.main-view-container) 제거, map-wrapper 스타일 수정 */
         #map-wrapper {
             flex-grow: 1;
             display: flex;
@@ -81,13 +95,12 @@
             border-radius: 8px;
         }
 
-        /* ✅ 2. 뉴스 컨테이너 스타일 수정 */
         #news-container {
-            flex-grow: 1; /* 부모(.page-container)의 남은 공간을 모두 차지 */
+            flex-grow: 1;
             padding: 30px 40px;
-            overflow-y: auto; /* 내용이 넘치면 스크롤바 자동 생성 */
+            overflow-y: auto;
             background-color: white;
-            display: none; /* 기본적으로 숨김 */
+            display: none;
         }
         #news-container h2 {
             margin-top: 0;
@@ -158,8 +171,8 @@
             width: 380px;
             height: 100%;
             background-color: white;
-            padding: 20px;
-            padding-top: 60px;
+            padding: 15px;
+            padding-top: 50px;
             box-shadow: -4px 0 12px rgba(0,0,0,0.1);
             box-sizing: border-box;
             z-index: 1000;
@@ -171,8 +184,8 @@
         }
         .close-btn { 
             position: absolute; 
-            top: 15px; 
-            right: 20px; 
+            top: 10px;
+            right: 15px;
             background: none; 
             border: none; 
             font-size: 24px; 
@@ -182,12 +195,63 @@
         
         #detail-content {
             white-space: pre-wrap;
-            line-height: 1.6;
+            line-height: 1.4;
         }
         
+        .panel-news-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .panel-news-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .panel-news-item h3, .panel-news-item p {
+            margin: 0;
+            padding: 0;
+        }
+        .panel-news-item h3 {
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        .panel-news-item h3 a {
+            text-decoration: none;
+            color: #1a73e8;
+        }
+        .panel-news-item .news-date {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .panel-news-item p {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.3;
+        }
+
+        .facility-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        .facility-section h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .facility-section ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .facility-section li {
+            padding: 3px 0;
+            font-size: 14px;
+        }
+
         .news-item {
-            margin-bottom: 20px;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
             border-bottom: 1px solid #eee;
         }
         .news-item:last-child {
@@ -252,9 +316,9 @@
         <h1 id="main-title-btn" class="main-title">데이터센터 각 군산</h1>
         <nav class="main-nav">
             <ul>
-                <li><a href="#" id="overview-btn">개요</a></li>
-                <li><a href="#" id="news-btn">정책,소식</a></li>
-                <li><a href="#">공공정보</a></li>
+                <li><a href="#" id="overview-btn" class="nav-link active">개요</a></li>
+                <li><a href="#" id="news-btn" class="nav-link">정책,소식</a></li>
+                <li><a href="#" id="public-info-btn" class="nav-link">공공정보</a></li>
             </ul>
             <div class="location-filter-container">
                 <select id="location-filter" class="location-select">
@@ -264,7 +328,6 @@
         </nav>
     </header>
 
-    <!-- ✅ 3. HTML 구조 단순화 -->
     <div id="map-wrapper">
         <div id="map-container">
             <div id="map"></div>
@@ -318,9 +381,12 @@
     const mainTitleBtn = document.getElementById('main-title-btn');
     const overviewBtn = document.getElementById('overview-btn');
     const newsBtn = document.getElementById('news-btn');
+    const publicInfoBtn = document.getElementById('public-info-btn');
     const mapWrapper = document.getElementById('map-wrapper');
     const newsContainer = document.getElementById('news-container');
     const newsContent = document.getElementById('news-content');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const locationFilterContainer = document.querySelector('.location-filter-container');
 
 
     let map;
@@ -328,6 +394,7 @@
     let currentOverlays = [];
     let initialCenter;
     let initialZoom;
+    let isFilterChangedByMapClick = false;
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
@@ -384,17 +451,94 @@
             customOverlay.setMap(map);
             
             customOverlay.getElement().addEventListener('click', function() {
-                detailTitle.textContent = place.name;
-                detailContent.innerHTML = `<p><strong>위도:</strong> ${place.latitude}</p><p><strong>경도:</strong> ${place.longitude}</p>`;
-                detailPanel.classList.add('visible');
+                showDetailsForPlace(place.name, position);
                 
-                map.morph(position, 15);
+                isFilterChangedByMapClick = true;
                 locationFilter.value = place.name;
             });
             
             currentOverlays.push(customOverlay);
         });
     }
+    
+    async function showDetailsForPlace(placeName, position) {
+        map.morph(position, 15);
+
+        detailTitle.textContent = `${placeName} 관련 정보`;
+        detailContent.innerHTML = '<div class="loader"></div>';
+        detailPanel.classList.add('visible');
+
+        const [newsResponse, facilitiesResponse] = await Promise.all([
+            supabaseClient
+                .from('gunsan_news')
+                .select('title, date, link, summary')
+                .eq('spot', placeName)
+                .order('date', { ascending: false })
+                .limit(5),
+            supabaseClient
+                .from('publicFacilities')
+                .select('facility_name, latitude, longitude')
+                .eq('spot', placeName)
+        ]);
+        
+        const { data: newsItems, error: newsError } = newsResponse;
+        const { data: facilities, error: facilitiesError } = facilitiesResponse;
+
+        let finalHtml = '';
+
+        if (newsError) {
+            console.error("Place news fetch error:", newsError);
+        } else if (!newsItems || newsItems.length === 0) {
+            finalHtml += "<p>관련된 최신 소식이 없습니다.</p>";
+        } else {
+            newsItems.forEach(item => {
+                finalHtml += `
+                    <div class="panel-news-item">
+                        <h3><a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>
+                        <p class="news-date">${new Date(item.date).toLocaleDateString()}</p>
+                        <p>${item.summary}</p>
+                    </div>
+                `;
+            });
+        }
+
+        if (facilitiesError) {
+            console.error("Facilities fetch error:", facilitiesError);
+        } else if (facilities && facilities.length > 0) {
+            finalHtml += '<div class="facility-section">';
+            finalHtml += '<h4>주요 시설</h4>';
+            finalHtml += '<ul>';
+            facilities.forEach(facility => {
+                finalHtml += `<li>${facility.facility_name}</li>`;
+            });
+            finalHtml += '</ul></div>';
+        }
+
+        detailContent.innerHTML = finalHtml;
+
+        clearOverlays();
+        if (facilities && facilities.length > 0) {
+            facilities.forEach(facility => {
+                const facilityPosition = new naver.maps.LatLng(facility.latitude, facility.longitude);
+                const facilityOverlay = new CustomOverlay({
+                    position: facilityPosition,
+                    content: `<div>${facility.facility_name}</div>`
+                });
+                facilityOverlay.setMap(map);
+                currentOverlays.push(facilityOverlay);
+            });
+        } else {
+            const originalOverlay = new CustomOverlay({ position, content: `<div>${placeName}</div>` });
+            originalOverlay.setMap(map);
+            originalOverlay.getElement().addEventListener('click', function() {
+                 showDetailsForPlace(placeName, position);
+                 isFilterChangedByMapClick = true;
+                 locationFilter.value = placeName;
+            });
+            currentOverlays.push(originalOverlay);
+        }
+    }
+
 
     function populateDropdown(places) {
         const districts = [...new Set(places.map(place => place.name))].sort();
@@ -406,9 +550,18 @@
         });
     }
 
+    function updateActiveNav(activeLink) {
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+        });
+        activeLink.classList.add('active');
+    }
+
     function resetToInitialView() {
         newsContainer.style.display = 'none';
         mapWrapper.style.display = 'flex';
+        updateActiveNav(overviewBtn);
+        locationFilterContainer.style.display = 'block';
 
         locationFilter.value = 'all';
         drawOverlays(allPlaces);
@@ -420,6 +573,8 @@
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
         detailPanel.classList.remove('visible');
+        updateActiveNav(newsBtn);
+        locationFilterContainer.style.display = 'none';
         newsContent.innerHTML = '<div class="loader"></div>';
 
         const { data: newsItems, error } = await supabaseClient
@@ -427,7 +582,6 @@
             .select('title, date, link, summary, spot')
             .order('date', { ascending: false });
 
-        // ✅ 콘솔 로그 제거
         if (error) {
             console.error("News fetch error:", error);
             newsContent.innerHTML = "<p>소식을 불러오는 중 오류가 발생했습니다.</p>";
@@ -452,12 +606,24 @@
         });
         newsContent.innerHTML = newsHtml;
     }
+    
+    function showPublicInfoView() {
+        mapWrapper.style.display = 'none';
+        newsContainer.style.display = 'block';
+        detailPanel.classList.remove('visible');
+        updateActiveNav(publicInfoBtn);
+        locationFilterContainer.style.display = 'none';
+        newsContainer.querySelector('h2').textContent = '공공정보';
+        newsContent.innerHTML = "<p>'공공정보' 메뉴는 현재 준비 중입니다.</p>";
+    }
 
     async function main() {
         map = new naver.maps.Map('map', {
             center: new naver.maps.LatLng(35.96756, 126.7383),
             zoom: 12,
-            mapDataControl: false
+            mapDataControl: false,
+            zoomControl: true,
+            zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT }
         });
 
         initialCenter = map.getCenter();
@@ -481,23 +647,23 @@
     closeButton.addEventListener('click', () => detailPanel.classList.remove('visible'));
 
     locationFilter.addEventListener('change', function() {
-        resetToInitialView();
+        if (isFilterChangedByMapClick) {
+            isFilterChangedByMapClick = false;
+            return;
+        }
+
+        updateActiveNav(overviewBtn);
         const selectedDistrict = this.value;
 
         if (selectedDistrict === 'all') {
-            // handled by resetToInitialView
+            resetToInitialView();
         } else {
             const filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
-            drawOverlays(filteredPlaces);
-
             if (filteredPlaces.length > 0) {
                 const firstPlaceInDistrict = filteredPlaces[0];
                 const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
-                map.morph(newPosition, 15);
-
-                detailTitle.textContent = firstPlaceInDistrict.name;
-                detailContent.innerHTML = `<p><strong>위도:</strong> ${firstPlaceInDistrict.latitude}</p><p><strong>경도:</strong> ${firstPlaceInDistrict.longitude}</p>`;
-                detailPanel.classList.add('visible');
+                
+                showDetailsForPlace(firstPlaceInDistrict.name, newPosition);
             }
         }
     });
@@ -525,6 +691,11 @@
     newsBtn.addEventListener('click', function(e) {
         e.preventDefault();
         fetchAndShowNews();
+    });
+
+    publicInfoBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showPublicInfoView();
     });
 
     main();
