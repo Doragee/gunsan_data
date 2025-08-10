@@ -182,99 +182,81 @@
             cursor: pointer;
         }
 
-        .panel {
+        .modal-overlay {
             position: fixed;
             top: 0;
-            right: -400px;
-            width: 380px;
+            left: 0;
+            width: 100%;
             height: 100%;
-            background-color: white;
-            padding: 15px;
-            padding-top: 50px;
-            box-shadow: -4px 0 12px rgba(0,0,0,0.1);
-            box-sizing: border-box;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
             z-index: 1000;
-            transition: right 0.4s ease-in-out;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-window {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
             overflow-y: auto;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
         }
-        .panel.visible {
-            right: 0;
+        .modal-overlay.visible .modal-window {
+            transform: scale(1);
         }
-        .close-btn { 
-            position: absolute; 
-            top: 10px;
-            right: 15px;
-            background: none; 
-            border: none; 
-            font-size: 24px; 
-            cursor: pointer; 
-            color: #555; 
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #555;
         }
-        
-        #detail-content {
+        #modal-title {
+            margin-top: 0;
+        }
+        #modal-content {
             white-space: pre-wrap;
             line-height: 1.4;
         }
         
-        .panel-news-item {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .panel-news-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-        .panel-news-item h3, .panel-news-item p {
-            margin: 0;
-            padding: 0;
-        }
-        .panel-news-item h3 {
-            font-size: 16px;
-            margin-bottom: 2px;
-        }
-        .panel-news-item h3 a {
-            text-decoration: none;
-            color: #1a73e8;
-        }
-        .panel-news-item .news-date {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 4px;
-        }
-        .panel-news-item p {
-            font-size: 14px;
-            color: #555;
-            line-height: 1.3;
-        }
-
-        .facility-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ddd;
-        }
-        .facility-section h4 {
-            margin-top: 0;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-        .facility-section ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .facility-section li {
-            padding: 4px 0;
-            font-size: 14px;
+        .summary-item {
             display: flex;
-            border-bottom: 1px solid #f0f0f0;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
         }
-        .facility-section li:last-child {
-            border-bottom: none;
+        .summary-item:hover {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
         }
-        .facility-section li strong {
-            width: 80px;
-            flex-shrink: 0;
-            color: #555;
+        .summary-item strong {
+            font-size: 16px;
+        }
+        .summary-item span {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1a73e8;
         }
 
         .content-grid {
@@ -384,10 +366,12 @@
 
 </div>
 
-<div id="detail-panel" class="panel">
-    <button id="close-button" class="close-btn">&times;</button>
-    <h2 id="detail-title"></h2>
-    <div id="detail-content"></div>
+<div id="modal-overlay" class="modal-overlay">
+    <div class="modal-window">
+        <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+        <h2 id="modal-title"></h2>
+        <div id="modal-content"></div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -407,10 +391,11 @@
     CustomOverlay.prototype.onRemove = function() { this._element.parentElement.removeChild(this._element); };
     CustomOverlay.prototype.getElement = function() { return this._element; };
 
-    const detailPanel = document.getElementById('detail-panel');
-    const detailTitle = document.getElementById('detail-title');
-    const detailContent = document.getElementById('detail-content');
-    const closeButton = document.getElementById('close-button');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
     const locationFilter = document.getElementById('location-filter');
     const promptInput = document.getElementById('prompt-input');
     const promptSendBtn = document.getElementById('prompt-send-btn');
@@ -440,11 +425,10 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ 1. 오류 수정: 함수 이름을 callVectorSearchAPI로 변경했습니다.
     async function callVectorSearchAPI(prompt) {
-        detailTitle.textContent = "AI 답변 생성 중...";
-        detailContent.innerHTML = '<div class="loader"></div>';
-        detailPanel.classList.add('visible');
+        modalTitle.textContent = "AI 답변 생성 중...";
+        modalContent.innerHTML = '<div class="loader"></div>';
+        modalOverlay.classList.add('visible');
         promptSendBtn.disabled = true;
 
         try {
@@ -454,13 +438,13 @@
 
             if (error) throw error;
 
-            detailTitle.textContent = "AI 답변";
-            detailContent.textContent = data.answer || "답변을 생성하지 못했습니다.";
+            modalTitle.textContent = "AI 답변";
+            modalContent.textContent = data.answer || "답변을 생성하지 못했습니다.";
 
         } catch (error) {
             console.error("Edge Function Error:", error);
-            detailTitle.textContent = "오류";
-            detailContent.textContent = "AI 답변을 불러오는 중 오류가 발생했습니다.";
+            modalTitle.textContent = "오류";
+            modalContent.textContent = "AI 답변을 불러오는 중 오류가 발생했습니다.";
         } finally {
             promptSendBtn.disabled = false;
         }
@@ -497,98 +481,43 @@
     async function showDetailsForPlace(placeName, position) {
         map.morph(position, 15);
 
-        detailTitle.textContent = `${placeName} 관련 정보`;
-        detailContent.innerHTML = '<div class="loader"></div>';
-        detailPanel.classList.add('visible');
+        modalTitle.textContent = `${placeName} 요약 정보`;
+        modalContent.innerHTML = '<div class="loader"></div>';
+        modalOverlay.classList.add('visible');
 
         const [newsResponse, facilitiesResponse] = await Promise.all([
             supabaseClient
                 .from('gunsan_news')
-                .select('title, date, link, summary')
-                .eq('spot', placeName)
-                .order('date', { ascending: false })
-                .limit(5),
+                .select('*', { count: 'exact', head: true })
+                .eq('spot', placeName),
             supabaseClient
                 .from('publicFacilities')
-                .select('facility_name, latitude, longitude, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
+                .select('*', { count: 'exact', head: true })
                 .eq('spot', placeName)
         ]);
         
-        const { data: newsItems, error: newsError } = newsResponse;
-        const { data: facilities, error: facilitiesError } = facilitiesResponse;
+        const newsCount = newsResponse.count || 0;
+        const facilitiesCount = facilitiesResponse.count || 0;
 
-        let finalHtml = '';
+        let finalHtml = `
+            <div class="summary-item" id="news-summary-btn">
+                <strong>정책,소식</strong>
+                <span>${newsCount}건</span>
+            </div>
+            <div class="summary-item" id="facility-summary-btn">
+                <strong>공공정보</strong>
+                <span>${facilitiesCount}곳</span>
+            </div>
+        `;
+        
+        modalContent.innerHTML = finalHtml;
 
-        if (newsError) {
-            console.error("Place news fetch error:", newsError);
-        } else if (!newsItems || newsItems.length === 0) {
-            finalHtml += "<p>관련된 최신 소식이 없습니다.</p>";
-        } else {
-            newsItems.forEach(item => {
-                finalHtml += `
-                    <div class="panel-news-item">
-                        <h3><a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>
-                        <p class="news-date">${new Date(item.date).toLocaleDateString()}</p>
-                        <p>${item.summary}</p>
-                    </div>
-                `;
-            });
-        }
-
-        if (facilitiesError) {
-            console.error("Facilities fetch error:", facilitiesError);
-        } else if (facilities && facilities.length > 0) {
-            finalHtml += '<div class="facility-section">';
-            finalHtml += '<h4>주요 시설</h4>';
-            
-            facilities.forEach(facility => {
-                const feeText = facility.paid_service ? (facility.paid_service === true ? '유료' : facility.paid_service) : '무료';
-                
-                let weekendHoursHtml = '';
-                if (facility.weekend_opening_hour !== '00:00:00' || facility.weekend_closing_hour !== '00:00:00') {
-                    const weekendHours = (facility.weekend_opening_hour && facility.weekend_closing_hour) ? `${facility.weekend_opening_hour} ~ ${facility.weekend_closing_hour}` : '';
-                    if (weekendHours) {
-                       weekendHoursHtml = `<li><strong>주말시간:</strong> <span>${weekendHours}</span></li>`;
-                    }
-                }
-
-                finalHtml += `
-                    <ul>
-                        <li><strong>시설명:</strong> <span>${facility.facility_name || '정보없음'}</span></li>
-                        <li><strong>주중시간:</strong> <span>${facility.weekday_opening_hour || ''} ~ ${facility.weekday_closing_hour || ''}</span></li>
-                        ${weekendHoursHtml}
-                        <li><strong>이용요금:</strong> <span>${feeText}</span></li>
-                        <li><strong>담당부서:</strong> <span>${facility.department_in_charge || '정보없음'}</span></li>
-                        <li><strong>연락처:</strong> <span>${facility.contact_number || '-'}</span></li>
-                    </ul>
-                `;
-            });
-            finalHtml += '</div>';
-        }
-
-        detailContent.innerHTML = finalHtml;
-
-        clearOverlays();
-        if (facilities && facilities.length > 0) {
-            facilities.forEach(facility => {
-                const facilityPosition = new naver.maps.LatLng(facility.latitude, facility.longitude);
-                const facilityOverlay = new CustomOverlay({
-                    position: facilityPosition,
-                    content: `<div>${facility.facility_name}</div>`
-                });
-                facilityOverlay.setMap(map);
-                currentOverlays.push(facilityOverlay);
-            });
-        } else {
-            const originalOverlay = new CustomOverlay({ position, content: `<div>${placeName}</div>` });
-            originalOverlay.setMap(map);
-            originalOverlay.getElement().addEventListener('click', function() {
-                 showDetailsForPlace(placeName, position);
-                 isFilterChangedByMapClick = true;
-                 locationFilter.value = placeName;
-            });
-            currentOverlays.push(originalOverlay);
-        }
+        document.getElementById('news-summary-btn').addEventListener('click', () => {
+            fetchAndShowNews(placeName);
+        });
+        document.getElementById('facility-summary-btn').addEventListener('click', () => {
+            showPublicInfoView(placeName);
+        });
     }
 
 
@@ -618,9 +547,10 @@
         locationFilter.value = 'all';
         drawOverlays(allPlaces);
         map.morph(initialCenter, initialZoom);
-        detailPanel.classList.remove('visible');
+        modalOverlay.classList.remove('visible');
     }
 
+    // ✅ 3. 체크박스 생성 및 이벤트 핸들러 함수 (복원)
     function setupCheckboxFilters(data, renderFunction) {
         filterCheckboxes.innerHTML = '';
         const spots = [...new Set(data.map(item => item.spot).filter(Boolean))].sort();
@@ -654,6 +584,7 @@
         });
     }
 
+    // ✅ 4. 뉴스 렌더링 함수 (복원)
     function renderNewsCards(newsItems) {
         if (!newsItems || newsItems.length === 0) {
             newsContent.innerHTML = "<p>선택된 지역에 해당하는 소식이 없습니다.</p>";
@@ -674,6 +605,7 @@
         newsContent.innerHTML = newsHtml;
     }
 
+    // ✅ 5. 시설 렌더링 함수 (복원)
     function renderFacilityCards(facilities) {
         if (!facilities || facilities.length === 0) {
             newsContent.innerHTML = "<p>선택된 지역에 해당하는 공공정보가 없습니다.</p>";
@@ -703,19 +635,25 @@
         newsContent.innerHTML = facilitiesHtml;
     }
 
-    async function fetchAndShowNews() {
+    async function fetchAndShowNews(filterSpot = null) {
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
-        detailPanel.classList.remove('visible');
+        modalOverlay.classList.remove('visible');
         updateActiveNav(newsBtn);
         locationFilterContainer.style.display = 'none';
-        newsContainer.querySelector('h2').textContent = '정책, 소식';
+        newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 정책, 소식` : '정책, 소식';
         newsContent.innerHTML = '<div class="loader"></div>';
 
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
             .from('gunsan_news')
             .select('title, date, link, summary, spot')
             .order('date', { ascending: false });
+        
+        if(filterSpot) {
+            query = query.eq('spot', filterSpot);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             console.error("News fetch error:", error);
@@ -728,19 +666,25 @@
         renderNewsCards(allNews);
     }
     
-    async function showPublicInfoView() {
+    async function showPublicInfoView(filterSpot = null) {
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
-        detailPanel.classList.remove('visible');
+        modalOverlay.classList.remove('visible');
         updateActiveNav(publicInfoBtn);
         locationFilterContainer.style.display = 'none';
-        newsContainer.querySelector('h2').textContent = '공공정보';
+        newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 공공정보` : '공공정보';
         newsContent.innerHTML = '<div class="loader"></div>';
 
-        const { data, error } = await supabaseClient
+        let query = supabaseClient
             .from('publicFacilities')
             .select('facility_name, spot, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
             .order('facility_name', { ascending: true });
+        
+        if(filterSpot) {
+            query = query.eq('spot', filterSpot);
+        }
+
+        const { data, error } = await query;
         
         if (error) {
             console.error("Public facilities fetch error:", error);
@@ -780,7 +724,12 @@
         drawOverlays(allPlaces);
     }
 
-    closeButton.addEventListener('click', () => detailPanel.classList.remove('visible'));
+    modalCloseBtn.addEventListener('click', () => modalOverlay.classList.remove('visible'));
+    modalOverlay.addEventListener('click', (event) => {
+        if (event.target === modalOverlay) {
+            modalOverlay.classList.remove('visible');
+        }
+    });
 
     locationFilter.addEventListener('change', function() {
         if (isFilterChangedByMapClick) {
