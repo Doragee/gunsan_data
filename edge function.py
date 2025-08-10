@@ -1,121 +1,894 @@
-// supabase/functions/vector-search/index.ts
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
-const GOOGLE_API_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
-Deno.serve(async (req)=>{
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: corsHeaders
-    });
-  }
-  try {
-    const { query } = await req.json();
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-    // 1. 벡터 검색 (의미 기반 유사 문서 찾기)
-    const embeddingResponse = await fetch(`${GOOGLE_API_BASE_URL}embedding-001:embedContent?key=${googleApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'models/embedding-001',
-        content: {
-          parts: [
-            {
-              text: query
-            }
-          ]
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터센터 각 군산</title>
+    <!-- ✅ 1. 마크다운 변환 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* 기본 스타일 초기화 */
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            background-color: #f8f9fa;
         }
-      })
-    });
-    if (!embeddingResponse.ok) throw new Error(await embeddingResponse.text());
-    const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData.embedding.values;
-    const { data: documents, error: rpcError } = await supabaseClient.rpc('match_documents', {
-      query_embedding: queryEmbedding,
-      match_threshold: 0.5,
-      match_count: 5
-    });
-    if (rpcError) throw rpcError;
-    const vectorContext = documents.map((doc)=>doc.content).join('\n---\n');
-    // 2. 키워드 기반 SQL 검색 (개수 세기)
-    let sqlContext = '';
-    const { data: places } = await supabaseClient.from('administrative_welfare_centers').select('name');
-    const placeNames = places?.map((p)=>p.name) || [];
-    const foundPlace = placeNames.find((name)=>query.includes(name));
-    if (foundPlace) {
-      const { count, error: countError } = await supabaseClient.from('publicFacilities').select('*', {
-        count: 'exact',
-        head: true
-      }).eq('spot', foundPlace);
-      if (!countError && count !== null) {
-        sqlContext = `참고로, ${foundPlace}에는 총 ${count}개의 공공시설이 등록되어 있습니다.`;
-      }
+
+        .page-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .top-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            flex-shrink: 0;
+            background-color: white;
+        }
+
+        .main-title {
+            font-size: 28px;
+            font-weight: 900;
+            text-align: center;
+            margin: 0 0 20px 0;
+            color: #1a73e8;
+            cursor: pointer;
+        }
+
+        .main-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 10px;
+        }
+        .main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; }
+        .main-nav li { margin: 0 20px; }
+        .main-nav a {
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 10px 0;
+            transition: color 0.2s, border-bottom-color 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .main-nav a:hover {
+            color: #1a73e8;
+        }
+        
+        .main-nav a.active {
+            color: #1a73e8;
+            border-bottom-color: #1a73e8;
+        }
+        
+        .location-filter-container {
+            margin-left: 30px;
+        }
+        .location-select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        #map-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #map-container {
+            flex-grow: 1;
+            padding: 0 20px;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+
+        #news-container {
+            flex-grow: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            background-color: white;
+            display: none;
+        }
+        #news-container h2 {
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .filter-checkbox-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+        .filter-checkbox-container label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .filter-checkbox-container input {
+            margin-right: 5px;
+        }
+
+        .custom-overlay-label {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            white-space: nowrap;
+            transform: translate(-50%, -120%);
+            cursor: pointer;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-window {
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.visible .modal-window {
+            transform: scale(1);
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #555;
+        }
+        #modal-title {
+            margin-top: 0;
+        }
+        #modal-content {
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .summary-item:hover {
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+        .summary-item strong {
+            font-size: 16px;
+        }
+        .summary-item span {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .content-card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .content-card h3 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #1a73e8;
+        }
+        .content-card h3 a {
+            text-decoration: none;
+            color: #1a73e8;
+        }
+        .content-card h3 a:hover {
+            text-decoration: underline;
+        }
+        .content-card p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #555;
+            line-height: 1.5;
+        }
+        .content-card .card-footer {
+            font-size: 13px;
+            color: #333;
+            background-color: #e8f0fe;
+            padding: 5px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .content-card .card-date {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .info-footer {
+            flex-shrink: 0;
+            padding: 40px 20px; 
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #555;
+            font-size: 14px;
+        }
+
+        #chat-toggle-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transition: transform 0.2s ease;
+        }
+        #chat-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        #chat-panel {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 380px;
+            height: 500px;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transform: translateY(20px);
+            opacity: 0;
+            visibility: hidden;
+            transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #chat-panel.visible {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .chat-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        .user-message {
+            background-color: #1a73e8;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-message {
+            background-color: #f1f3f4;
+            color: #3c4043;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .ai-message ul {
+            padding-left: 20px;
+            margin: 8px 0 0 0;
+        }
+        .ai-message li {
+            margin-bottom: 4px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #eee;
+        }
+        #chat-input {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            outline: none;
+        }
+        #chat-send-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-container">
+    <header class="top-header">
+        <h1 id="main-title-btn" class="main-title">데이터센터 각 군산</h1>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="#" id="overview-btn" class="nav-link active">개요</a></li>
+                <li><a href="#" id="news-btn" class="nav-link">정책,소식</a></li>
+                <li><a href="#" id="public-info-btn" class="nav-link">공공정보</a></li>
+            </ul>
+            <div class="location-filter-container">
+                <select id="location-filter" class="location-select">
+                    <option value="all">전체 보기</option>
+                </select>
+            </div>
+        </nav>
+    </header>
+
+    <div id="map-wrapper">
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+        <footer class="info-footer">
+            <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
+        </footer>
+    </div>
+
+    <div id="news-container">
+        <h2>정책, 소식</h2>
+        <div id="filter-checkboxes" class="filter-checkbox-container"></div>
+        <div id="news-content"></div>
+    </div>
+
+</div>
+
+<div id="modal-overlay" class="modal-overlay">
+    <div class="modal-window">
+        <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+        <h2 id="modal-title"></h2>
+        <div id="modal-content"></div>
+    </div>
+</div>
+
+<button id="chat-toggle-btn">💬</button>
+<div id="chat-panel">
+    <div class="chat-header">AI 챗봇</div>
+    <div class="chat-messages" id="chat-messages">
+        <div class="message ai-message">안녕하세요! 군산시에 대해 무엇이든 물어보세요.</div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="메시지 입력...">
+        <button id="chat-send-btn">↑</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
+
+<script>
+    function CustomOverlay(options) {
+        this._element = document.createElement('div');
+        this._element.innerHTML = options.content;
+        this._element.className = 'custom-overlay-label';
+        this._position = options.position;
     }
-    // ✅ 3. AI에게 내리는 지시(프롬프트)를 더 구체적으로 변경했습니다.
-    const prompt = `당신은 사용자를 돕는 친절한 '군산시 안내 전문가'입니다.
-당신의 임무는 아래 [참고 정보]를 바탕으로 사용자의 질문에 한국어로 답변하는 것입니다.
+    CustomOverlay.prototype = new naver.maps.OverlayView();
+    CustomOverlay.prototype.constructor = CustomOverlay;
+    CustomOverlay.prototype.onAdd = function() { this.getPanes().overlayLayer.appendChild(this._element); };
+    CustomOverlay.prototype.draw = function() { if (!this.getMap()) { return; } var projection = this.getProjection(); var position = this._position; var pixelPosition = projection.fromCoordToOffset(position); this._element.style.left = pixelPosition.x + 'px'; this._element.style.top = pixelPosition.y + 'px'; };
+    CustomOverlay.prototype.onRemove = function() { this._element.parentElement.removeChild(this._element); };
+    CustomOverlay.prototype.getElement = function() { return this._element; };
 
-**규칙:**
-1.  답변은 반드시 [참고 정보]에 있는 내용만을 근거로 해야 합니다.
-2.  질문에 대한 정보가 [참고 정보]에 없다면, 절대로 추측해서 답변하지 말고 "죄송합니다, 문의하신 내용에 대한 정보는 가지고 있지 않습니다." 라고만 말하세요.
-3.  만약 '참고 정보'에서 여러 시설의 이름이 발견되면, 그 시설들의 목록을 먼저 보여주고, 사용자가 특정 시설에 대한 상세 정보를 원하면 다시 질문하도록 자연스럽게 유도하세요.
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
 
----
-[참고 정보]
-${sqlContext} 
-${vectorContext}
----
+    const chatToggleBtn = document.getElementById('chat-toggle-btn');
+    const chatPanel = document.getElementById('chat-panel');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    
+    const locationFilter = document.getElementById('location-filter');
+    const mainTitleBtn = document.getElementById('main-title-btn');
+    const overviewBtn = document.getElementById('overview-btn');
+    const newsBtn = document.getElementById('news-btn');
+    const publicInfoBtn = document.getElementById('public-info-btn');
+    const mapWrapper = document.getElementById('map-wrapper');
+    const newsContainer = document.getElementById('news-container');
+    const newsContent = document.getElementById('news-content');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const locationFilterContainer = document.querySelector('.location-filter-container');
+    const filterCheckboxes = document.getElementById('filter-checkboxes');
 
-[사용자 질문]
-${query}
----
 
-자, 이제 위의 규칙에 따라 답변을 생성하세요.`;
-    const completionResponse = await fetch(`${GOOGLE_API_BASE_URL}gemini-1.5-flash-latest:generateContent?key=${googleApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt
-              }
-            ]
-          }
-        ]
-      })
+    let map;
+    let allPlaces = [];
+    let allNews = [];
+    let allFacilities = [];
+    let currentOverlays = [];
+    let initialCenter;
+    let initialZoom;
+    let isFilterChangedByMapClick = false;
+
+    const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+    async function callVectorSearchAPI(prompt) {
+        chatSendBtn.disabled = true;
+        
+        const loadingElement = document.createElement('div');
+        loadingElement.className = 'message ai-message';
+        loadingElement.innerHTML = '<div class="loader" style="width:20px; height:20px; border-width:3px; margin: 0;"></div>';
+        chatMessages.appendChild(loadingElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        try {
+            // [수정] invoke 메소드를 그대로 사용하되, body에 캐시를 무력화할 고유한 값을 추가합니다.
+            const { data, error } = await supabaseClient.functions.invoke('query-rag-v2', {
+                body: { 
+                    query: prompt,
+                    // Edge Function은 이 값을 사용하지 않지만,
+                    // 캐시 시스템은 이 값 때문에 매번 다른 요청으로 인식합니다.
+                    _cacheBust: new Date().getTime() 
+                }
+            });
+            
+            if (error) throw error;
+
+            const searchResults = data.data;
+
+            if (searchResults && searchResults.length > 0) {
+                const contextText = searchResults
+                    .map(item => item.content)
+                    .join('\n\n---\n\n');
+                
+                loadingElement.innerHTML = marked.parse(contextText);
+            } else {
+                loadingElement.textContent = "죄송합니다, 관련 정보를 찾을 수 없습니다.";
+            }
+
+        } catch (error) {
+            console.error("Edge Function 호출 중 오류 발생:", error);
+            loadingElement.textContent = "답변을 불러오는 중 오류가 발생했습니다.";
+        } finally {
+            chatSendBtn.disabled = false;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    function clearOverlays() {
+        currentOverlays.forEach(overlay => overlay.setMap(null));
+        currentOverlays = [];
+    }
+
+    function drawOverlays(placesToDraw) {
+        clearOverlays();
+        if (!placesToDraw || placesToDraw.length === 0) return;
+
+        placesToDraw.forEach(place => {
+            const position = new naver.maps.LatLng(place.latitude, place.longitude);
+            const customOverlay = new CustomOverlay({
+                position: position,
+                content: `<div>${place.name}</div>`
+            });
+            customOverlay.setMap(map);
+            
+            customOverlay.getElement().addEventListener('click', function() {
+                showDetailsForPlace(place.name, position);
+                
+                isFilterChangedByMapClick = true;
+                locationFilter.value = place.name;
+            });
+            
+            currentOverlays.push(customOverlay);
+        });
+    }
+    
+    async function showDetailsForPlace(placeName, position) {
+        map.morph(position, 15);
+
+        modalTitle.textContent = `${placeName} 요약 정보`;
+        modalContent.innerHTML = '<div class="loader"></div>';
+        modalOverlay.classList.add('visible');
+
+        const [newsResponse, facilitiesResponse] = await Promise.all([
+            supabaseClient
+                .from('gunsan_news')
+                .select('*', { count: 'exact', head: true })
+                .eq('spot', placeName),
+            supabaseClient
+                .from('publicFacilities')
+                .select('*', { count: 'exact', head: true })
+                .eq('spot', placeName)
+        ]);
+        
+        const newsCount = newsResponse.count || 0;
+        const facilitiesCount = facilitiesResponse.count || 0;
+
+        let finalHtml = `
+            <div class="summary-item" id="news-summary-btn">
+                <strong>정책,소식</strong>
+                <span>${newsCount}건</span>
+            </div>
+            <div class="summary-item" id="facility-summary-btn">
+                <strong>공공정보</strong>
+                <span>${facilitiesCount}곳</span>
+            </div>
+        `;
+        
+        modalContent.innerHTML = finalHtml;
+
+        document.getElementById('news-summary-btn').addEventListener('click', () => {
+            fetchAndShowNews(placeName);
+        });
+        document.getElementById('facility-summary-btn').addEventListener('click', () => {
+            showPublicInfoView(placeName);
+        });
+    }
+
+
+    function populateDropdown(places) {
+        const districts = [...new Set(places.map(place => place.name))].sort();
+        districts.forEach(district => {
+            const option = document.createElement('option');
+            option.value = district;
+            option.textContent = district;
+            locationFilter.appendChild(option);
+        });
+    }
+
+    function updateActiveNav(activeLink) {
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+        });
+        activeLink.classList.add('active');
+    }
+
+    function resetToInitialView() {
+        newsContainer.style.display = 'none';
+        mapWrapper.style.display = 'flex';
+        updateActiveNav(overviewBtn);
+        locationFilterContainer.style.display = 'block';
+
+        locationFilter.value = 'all';
+        drawOverlays(allPlaces);
+        map.morph(initialCenter, initialZoom);
+        modalOverlay.classList.remove('visible');
+    }
+
+    function setupCheckboxFilters(data, renderFunction) {
+        filterCheckboxes.innerHTML = '';
+        const spots = [...new Set(data.map(item => item.spot).filter(Boolean))].sort();
+
+        const allLabel = document.createElement('label');
+        allLabel.innerHTML = `<input type="checkbox" value="all" checked> <strong>전체</strong>`;
+        filterCheckboxes.appendChild(allLabel);
+
+        spots.forEach(spot => {
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" value="${spot}" checked> ${spot}`;
+            filterCheckboxes.appendChild(label);
+        });
+
+        filterCheckboxes.addEventListener('change', (event) => {
+            const checkboxes = filterCheckboxes.querySelectorAll('input[type="checkbox"]');
+            const allCheckbox = checkboxes[0];
+            
+            if (event.target.value === 'all') {
+                checkboxes.forEach(cb => cb.checked = allCheckbox.checked);
+            } else {
+                allCheckbox.checked = [...checkboxes].slice(1).every(cb => cb.checked);
+            }
+
+            const selectedSpots = [...checkboxes]
+                .filter(cb => cb.checked && cb.value !== 'all')
+                .map(cb => cb.value);
+            
+            const filteredData = allCheckbox.checked ? data : data.filter(item => selectedSpots.includes(item.spot));
+            renderFunction(filteredData);
+        });
+    }
+
+    function renderNewsCards(newsItems) {
+        if (!newsItems || newsItems.length === 0) {
+            newsContent.innerHTML = "<p>선택된 지역에 해당하는 소식이 없습니다.</p>";
+            return;
+        }
+        let newsHtml = '<div class="content-grid">';
+        newsItems.forEach(item => {
+            newsHtml += `
+                <div class="content-card">
+                    <h3><a href="${item.link}" target="_blank" rel="noopener noreferrer">${item.title}</a></h3>
+                    <p class="card-date">${new Date(item.date).toLocaleDateString()}</p>
+                    <p>${item.summary}</p>
+                    <p class="card-footer"><strong>관련 장소:</strong> ${item.spot || '정보 없음'}</p>
+                </div>
+            `;
+        });
+        newsHtml += '</div>';
+        newsContent.innerHTML = newsHtml;
+    }
+
+    function renderFacilityCards(facilities) {
+        if (!facilities || facilities.length === 0) {
+            newsContent.innerHTML = "<p>선택된 지역에 해당하는 공공정보가 없습니다.</p>";
+            return;
+        }
+        let facilitiesHtml = '<div class="content-grid">';
+        facilities.forEach(item => {
+            const feeText = item.paid_service ? (item.paid_service === true ? '유료' : item.paid_service) : '무료';
+            const weekdayHours = (item.weekday_opening_hour && item.weekday_closing_hour) ? `${item.weekday_opening_hour} ~ ${item.weekday_closing_hour}` : '정보없음';
+            let weekendHoursHtml = '';
+            if (item.weekend_opening_hour !== '00:00:00' || item.weekend_closing_hour !== '00:00:00') {
+                const weekendHours = (item.weekend_opening_hour && item.weekend_closing_hour) ? `${item.weekend_opening_hour} ~ ${item.weekend_closing_hour}` : '정보없음';
+                weekendHoursHtml = `<p><strong>주말:</strong> ${weekendHours}</p>`;
+            }
+            facilitiesHtml += `
+                <div class="content-card">
+                    <h3>${item.facility_name}</h3>
+                    <p><strong>주중:</strong> ${weekdayHours}</p>
+                    ${weekendHoursHtml}
+                    <p><strong>요금:</strong> ${feeText}</p>
+                    <p><strong>담당:</strong> ${item.department_in_charge || '정보 없음'} (${item.contact_number || '-'})</p>
+                    <p class="card-footer"><strong>관련 지역:</strong> ${item.spot || '정보 없음'}</p>
+                </div>
+            `;
+        });
+        facilitiesHtml += '</div>';
+        newsContent.innerHTML = facilitiesHtml;
+    }
+
+    async function fetchAndShowNews(filterSpot = null) {
+        mapWrapper.style.display = 'none';
+        newsContainer.style.display = 'block';
+        modalOverlay.classList.remove('visible');
+        updateActiveNav(newsBtn);
+        locationFilterContainer.style.display = 'none';
+        newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 정책, 소식` : '정책, 소식';
+        newsContent.innerHTML = '<div class="loader"></div>';
+
+        let query = supabaseClient
+            .from('gunsan_news')
+            .select('title, date, link, summary, spot')
+            .order('date', { ascending: false });
+        
+        if(filterSpot) {
+            query = query.eq('spot', filterSpot);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error("News fetch error:", error);
+            newsContent.innerHTML = "<p>소식을 불러오는 중 오류가 발생했습니다.</p>";
+            return;
+        }
+        
+        allNews = data;
+        setupCheckboxFilters(allNews, renderNewsCards);
+        renderNewsCards(allNews);
+    }
+    
+    async function showPublicInfoView(filterSpot = null) {
+        mapWrapper.style.display = 'none';
+        newsContainer.style.display = 'block';
+        modalOverlay.classList.remove('visible');
+        updateActiveNav(publicInfoBtn);
+        locationFilterContainer.style.display = 'none';
+        newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 공공정보` : '공공정보';
+        newsContent.innerHTML = '<div class="loader"></div>';
+
+        let query = supabaseClient
+            .from('publicFacilities')
+            .select('facility_name, spot, weekday_opening_hour, weekday_closing_hour, weekend_opening_hour, weekend_closing_hour, paid_service, department_in_charge, contact_number')
+            .order('facility_name', { ascending: true });
+        
+        if(filterSpot) {
+            query = query.eq('spot', filterSpot);
+        }
+
+        const { data, error } = await query;
+        
+        if (error) {
+            console.error("Public facilities fetch error:", error);
+            newsContent.innerHTML = "<p>공공정보를 불러오는 중 오류가 발생했습니다.</p>";
+            return;
+        }
+        
+        allFacilities = data;
+        setupCheckboxFilters(allFacilities, renderFacilityCards);
+        renderFacilityCards(allFacilities);
+    }
+
+    async function main() {
+        map = new naver.maps.Map('map', {
+            center: new naver.maps.LatLng(35.96756, 126.7383),
+            zoom: 12,
+            mapDataControl: false,
+            zoomControl: true,
+            zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT }
+        });
+
+        initialCenter = map.getCenter();
+        initialZoom = map.getZoom();
+
+        const { data, error } = await supabaseClient
+            .from('administrative_welfare_centers')
+            .select('name, latitude, longitude');
+
+        if (error) { 
+            console.error('Error fetching data:', error);
+            alert('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message);
+            return; 
+        }
+
+        allPlaces = data;
+        populateDropdown(allPlaces);
+        drawOverlays(allPlaces);
+    }
+
+    modalCloseBtn.addEventListener('click', () => modalOverlay.classList.remove('visible'));
+    modalOverlay.addEventListener('click', (event) => {
+        if (event.target === modalOverlay) {
+            modalOverlay.classList.remove('visible');
+        }
     });
-    if (!completionResponse.ok) throw new Error(await completionResponse.text());
-    const completionData = await completionResponse.json();
-    const answer = completionData.candidates?.[0]?.content?.parts?.[0]?.text || "AI가 답변을 생성하는 데 실패했습니다.";
-    return new Response(JSON.stringify({
-      answer
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+
+    locationFilter.addEventListener('change', function() {
+        if (isFilterChangedByMapClick) {
+            isFilterChangedByMapClick = false;
+            return;
+        }
+
+        updateActiveNav(overviewBtn);
+        const selectedDistrict = this.value;
+
+        if (selectedDistrict === 'all') {
+            resetToInitialView();
+        } else {
+            const filteredPlaces = allPlaces.filter(place => place.name === selectedDistrict);
+            if (filteredPlaces.length > 0) {
+                const firstPlaceInDistrict = filteredPlaces[0];
+                const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
+                
+                showDetailsForPlace(firstPlaceInDistrict.name, newPosition);
+            }
+        }
     });
-  } catch (e) {
-    console.error("An unexpected error occurred:", e);
-    return new Response(JSON.stringify({
-      error: e.message
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
-      status: 500
+
+    chatToggleBtn.addEventListener('click', () => {
+        chatPanel.classList.toggle('visible');
     });
-  }
-});
+
+    chatSendBtn.addEventListener('click', () => {
+        const promptText = chatInput.value.trim();
+        if (promptText) {
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = promptText;
+            chatMessages.appendChild(userMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            callVectorSearchAPI(promptText);
+            chatInput.value = '';
+        }
+    });
+
+    chatInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            chatSendBtn.click();
+        }
+    });
+    
+    mainTitleBtn.addEventListener('click', resetToInitialView);
+    overviewBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        resetToInitialView();
+    });
+
+    newsBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        fetchAndShowNews();
+    });
+
+    publicInfoBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        showPublicInfoView();
+    });
+
+    main();
+</script>
+
+</body>
+</html>
