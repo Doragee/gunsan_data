@@ -209,12 +209,39 @@
 
         .info-footer {
             flex-shrink: 0;
-            padding: 40px 20px; 
+            background-color: #f8f9fa;
             border-top: 1px solid #e0e0e0;
-            text-align: center;
             color: #555;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            height: 50px;
+            overflow: hidden;
         }
+        .ticker-wrap {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .ticker-move {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker 45s linear infinite;
+        }
+        .ticker-item {
+            display: inline-block;
+            padding: 0 2rem;
+            cursor: pointer;
+            color: #333;
+            transition: color 0.2s;
+        }
+        .ticker-item:hover {
+            color: #1a73e8;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
 
         #chat-toggle-btn {
             position: fixed;
@@ -356,7 +383,9 @@
             <div id="map"></div>
         </div>
         <footer class="info-footer">
-            <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
+            <div class="ticker-wrap">
+                <div id="query-ticker" class="ticker-move"></div>
+            </div>
         </footer>
     </div>
 
@@ -420,6 +449,7 @@
     const navLinks = document.querySelectorAll('.nav-link');
     const locationFilterContainer = document.querySelector('.location-filter-container');
     const filterCheckboxes = document.getElementById('filter-checkboxes');
+    const queryTicker = document.getElementById('query-ticker');
 
 
     let map;
@@ -430,7 +460,6 @@
     let initialCenter;
     let initialZoom;
     let isFilterChangedByMapClick = false;
-    let markerClusterer = null;
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
@@ -521,11 +550,9 @@
     function clearOverlays() {
         currentOverlays.forEach(overlay => overlay.setMap(null));
         currentOverlays = [];
-        if (markerClusterer) {
-            markerClusterer.clearMarkers();
-        }
     }
 
+    // ✅ 1. drawOverlays 함수 로직을 수정했습니다.
     function drawOverlays(placesToDraw) {
         clearOverlays();
         if (!placesToDraw || placesToDraw.length === 0) return;
@@ -533,6 +560,7 @@
         placesToDraw.forEach(place => {
             const position = new naver.maps.LatLng(place.latitude, place.longitude);
             
+            // 오버레이에 표시할 텍스트를 조건부로 생성
             let infoParts = [];
             if (place.newsCount > 0) {
                 infoParts.push(`뉴스: ${place.newsCount}건`);
@@ -542,6 +570,7 @@
             }
 
             let contentString = `<div><strong>${place.name}</strong>`;
+            // 정보가 있을 경우에만 <br>과 <span>을 추가
             if (infoParts.length > 0) {
                 contentString += `<br><span>${infoParts.join(', ')}</span>`;
             }
