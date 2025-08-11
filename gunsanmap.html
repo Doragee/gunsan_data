@@ -150,83 +150,6 @@
             color: #555;
         }
 
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-        .modal-overlay.visible {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-window {
-            background-color: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            position: relative;
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-        .modal-overlay.visible .modal-window {
-            transform: scale(1);
-        }
-        .modal-close-btn {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #555;
-        }
-        #modal-title {
-            margin-top: 0;
-        }
-        #modal-content {
-            white-space: pre-wrap;
-            line-height: 1.4;
-        }
-        
-        .summary-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: background-color 0.2s, box-shadow 0.2s;
-        }
-        .summary-item:hover {
-            background-color: #f8f9fa;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-        }
-        .summary-item strong {
-            font-size: 16px;
-        }
-        .summary-item span {
-            font-size: 16px;
-            font-weight: bold;
-            color: #1a73e8;
-        }
-
         .content-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -445,14 +368,6 @@
 
 </div>
 
-<div id="modal-overlay" class="modal-overlay">
-    <div class="modal-window">
-        <button id="modal-close-btn" class="modal-close-btn">&times;</button>
-        <h2 id="modal-title"></h2>
-        <div id="modal-content"></div>
-    </div>
-</div>
-
 <button id="chat-toggle-btn">💬</button>
 <div id="chat-panel">
     <div class="chat-header">
@@ -486,11 +401,6 @@
     CustomOverlay.prototype.draw = function() { if (!this.getMap()) { return; } var projection = this.getProjection(); var position = this._position; var pixelPosition = projection.fromCoordToOffset(position); this._element.style.left = pixelPosition.x + 'px'; this._element.style.top = pixelPosition.y + 'px'; };
     CustomOverlay.prototype.onRemove = function() { this._element.parentElement.removeChild(this._element); };
     CustomOverlay.prototype.getElement = function() { return this._element; };
-
-    const modalOverlay = document.getElementById('modal-overlay');
-    const modalTitle = document.getElementById('modal-title');
-    const modalContent = document.getElementById('modal-content');
-    const modalCloseBtn = document.getElementById('modal-close-btn');
 
     const chatToggleBtn = document.getElementById('chat-toggle-btn');
     const chatPanel = document.getElementById('chat-panel');
@@ -623,7 +533,6 @@
         placesToDraw.forEach(place => {
             const position = new naver.maps.LatLng(place.latitude, place.longitude);
             
-            // ✅ 1. 오버레이에 표시할 텍스트를 조건부로 생성
             let infoParts = [];
             if (place.newsCount > 0) {
                 infoParts.push(`뉴스: ${place.newsCount}건`);
@@ -633,7 +542,6 @@
             }
 
             let contentString = `<div><strong>${place.name}</strong>`;
-            // 정보가 있을 경우에만 <br>과 <span>을 추가
             if (infoParts.length > 0) {
                 contentString += `<br><span>${infoParts.join(', ')}</span>`;
             }
@@ -673,50 +581,17 @@
             return;
         }
 
-        if (!facilities || facilities.length === 0) {
-            return;
+        if (facilities && facilities.length > 0) {
+            facilities.forEach(facility => {
+                const facilityPosition = new naver.maps.LatLng(facility.latitude, facility.longitude);
+                const facilityOverlay = new CustomOverlay({
+                    position: facilityPosition,
+                    content: `<div>${facility.facility_name}</div>`
+                });
+                facilityOverlay.setMap(map);
+                currentOverlays.push(facilityOverlay);
+            });
         }
-
-        const markers = facilities.map(facility => {
-            const facilityPosition = new naver.maps.LatLng(facility.latitude, facility.longitude);
-            const marker = new naver.maps.Marker({
-                position: facilityPosition,
-                title: facility.facility_name
-            });
-
-            const infoWindow = new naver.maps.InfoWindow({
-                content: `<div style="padding:10px;"><b>${facility.facility_name}</b></div>`
-            });
-
-            naver.maps.Event.addListener(marker, 'click', function() {
-                if (infoWindow.getMap()) {
-                    infoWindow.close();
-                } else {
-                    infoWindow.open(map, marker);
-                }
-            });
-
-            return marker;
-        });
-
-        markerClusterer = new MarkerClustering({
-            minClusterSize: 2,
-            map: map,
-            markers: markers,
-            disableClickZoom: false,
-            gridSize: 120,
-            icons: [
-                {
-                    content: '<div style="cursor:pointer;width:40px;height:40px;line-height:42px;font-size:14px;background-color:#1a73e8;color:white;border-radius:50%;text-align:center;font-weight:bold;"></div>',
-                    size: new naver.maps.Size(40, 40),
-                    anchor: new naver.maps.Point(20, 20)
-                }
-            ],
-            indexGenerator: [10, 100, 200, 500, 1000],
-            stylingFunction: function(clusterMarker, count) {
-                clusterMarker.getElement().querySelector('div').textContent = count;
-            }
-        });
     }
 
 
