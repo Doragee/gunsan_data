@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>데이터센터 각 군산</title>
+    <!-- ✅ 1. 마크다운 변환 라이브러리 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* 기본 스타일 초기화 */
         html, body {
@@ -126,47 +128,6 @@
         .filter-checkbox-container input {
             margin-right: 5px;
         }
-
-        .prompt-container {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60%;
-            max-width: 700px;
-            background-color: white;
-            border-radius: 28px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            display: flex;
-            align-items: center;
-            padding: 8px;
-            z-index: 500;
-        }
-        #prompt-input {
-            flex-grow: 1;
-            border: none;
-            outline: none;
-            background: transparent;
-            font-size: 16px;
-            padding: 10px 15px;
-        }
-        #prompt-send-btn {
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.2s;
-        }
-        #prompt-send-btn:hover { background-color: #155ab6; }
-        #prompt-send-btn:disabled { background-color: #a0a0a0; }
-
 
         .custom-overlay-label {
             position: absolute;
@@ -324,6 +285,111 @@
             color: #555;
             font-size: 14px;
         }
+
+        #chat-toggle-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 1001;
+            transition: transform 0.2s ease;
+        }
+        #chat-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+
+        #chat-panel {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 380px;
+            height: 500px;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transform: translateY(20px);
+            opacity: 0;
+            visibility: hidden;
+            transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #chat-panel.visible {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .chat-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #eee;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        .user-message {
+            background-color: #1a73e8;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-message {
+            background-color: #f1f3f4;
+            color: #3c4043;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        .ai-message ul {
+            padding-left: 20px;
+            margin: 8px 0 0 0;
+        }
+        .ai-message li {
+            margin-bottom: 4px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #eee;
+        }
+        #chat-input {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            outline: none;
+        }
+        #chat-send-btn {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -348,10 +414,6 @@
     <div id="map-wrapper">
         <div id="map-container">
             <div id="map"></div>
-            <div class="prompt-container">
-                <input type="text" id="prompt-input" placeholder="군산에 대해 무엇이든 물어보세요...">
-                <button id="prompt-send-btn">↑</button>
-            </div>
         </div>
         <footer class="info-footer">
             <p>이곳에 지도와 관련된 텍스트 정보를 표시할 수 있습니다. | © 데이터센터 각 군산 프로젝트</p>
@@ -374,6 +436,19 @@
     </div>
 </div>
 
+<button id="chat-toggle-btn">💬</button>
+<div id="chat-panel">
+    <div class="chat-header">AI 챗봇</div>
+    <div class="chat-messages" id="chat-messages">
+        <div class="message ai-message">안녕하세요! 군산시에 대해 무엇이든 물어보세요.</div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="메시지 입력...">
+        <button id="chat-send-btn">↑</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
 
@@ -396,9 +471,13 @@
     const modalContent = document.getElementById('modal-content');
     const modalCloseBtn = document.getElementById('modal-close-btn');
 
+    const chatToggleBtn = document.getElementById('chat-toggle-btn');
+    const chatPanel = document.getElementById('chat-panel');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    
     const locationFilter = document.getElementById('location-filter');
-    const promptInput = document.getElementById('prompt-input');
-    const promptSendBtn = document.getElementById('prompt-send-btn');
     const mainTitleBtn = document.getElementById('main-title-btn');
     const overviewBtn = document.getElementById('overview-btn');
     const newsBtn = document.getElementById('news-btn');
@@ -426,27 +505,45 @@
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     async function callVectorSearchAPI(prompt) {
-        modalTitle.textContent = "AI 답변 생성 중...";
-        modalContent.innerHTML = '<div class="loader"></div>';
-        modalOverlay.classList.add('visible');
-        promptSendBtn.disabled = true;
+        chatSendBtn.disabled = true;
+        
+        const loadingElement = document.createElement('div');
+        loadingElement.className = 'message ai-message';
+        loadingElement.innerHTML = '<div class="loader" style="width:20px; height:20px; border-width:3px; margin: 0;"></div>';
+        chatMessages.appendChild(loadingElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
 
         try {
-            const { data, error } = await supabaseClient.functions.invoke('vector-search', {
-                body: { query: prompt }
+            // [수정] invoke 메소드를 그대로 사용하되, body에 캐시를 무력화할 고유한 값을 추가합니다.
+            const { data, error } = await supabaseClient.functions.invoke('query-rag-v2', {
+                body: { 
+                    query: prompt,
+                    // Edge Function은 이 값을 사용하지 않지만,
+                    // 캐시 시스템은 이 값 때문에 매번 다른 요청으로 인식합니다.
+                    _cacheBust: new Date().getTime() 
+                }
             });
-
+            
             if (error) throw error;
 
-            modalTitle.textContent = "AI 답변";
-            modalContent.textContent = data.answer || "답변을 생성하지 못했습니다.";
+            const searchResults = data.data;
+
+            if (searchResults && searchResults.length > 0) {
+                const contextText = searchResults
+                    .map(item => item.content)
+                    .join('\n\n---\n\n');
+                
+                loadingElement.innerHTML = marked.parse(contextText);
+            } else {
+                loadingElement.textContent = "죄송합니다, 관련 정보를 찾을 수 없습니다.";
+            }
 
         } catch (error) {
-            console.error("Edge Function Error:", error);
-            modalTitle.textContent = "오류";
-            modalContent.textContent = "AI 답변을 불러오는 중 오류가 발생했습니다.";
+            console.error("Edge Function 호출 중 오류 발생:", error);
+            loadingElement.textContent = "답변을 불러오는 중 오류가 발생했습니다.";
         } finally {
-            promptSendBtn.disabled = false;
+            chatSendBtn.disabled = false;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     }
 
@@ -550,7 +647,6 @@
         modalOverlay.classList.remove('visible');
     }
 
-    // ✅ 3. 체크박스 생성 및 이벤트 핸들러 함수 (복원)
     function setupCheckboxFilters(data, renderFunction) {
         filterCheckboxes.innerHTML = '';
         const spots = [...new Set(data.map(item => item.spot).filter(Boolean))].sort();
@@ -584,7 +680,6 @@
         });
     }
 
-    // ✅ 4. 뉴스 렌더링 함수 (복원)
     function renderNewsCards(newsItems) {
         if (!newsItems || newsItems.length === 0) {
             newsContent.innerHTML = "<p>선택된 지역에 해당하는 소식이 없습니다.</p>";
@@ -605,7 +700,6 @@
         newsContent.innerHTML = newsHtml;
     }
 
-    // ✅ 5. 시설 렌더링 함수 (복원)
     function renderFacilityCards(facilities) {
         if (!facilities || facilities.length === 0) {
             newsContent.innerHTML = "<p>선택된 지역에 해당하는 공공정보가 없습니다.</p>";
@@ -753,16 +847,27 @@
         }
     });
 
-    promptSendBtn.addEventListener('click', () => {
-        const promptText = promptInput.value.trim();
+    chatToggleBtn.addEventListener('click', () => {
+        chatPanel.classList.toggle('visible');
+    });
+
+    chatSendBtn.addEventListener('click', () => {
+        const promptText = chatInput.value.trim();
         if (promptText) {
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = promptText;
+            chatMessages.appendChild(userMessage);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
             callVectorSearchAPI(promptText);
+            chatInput.value = '';
         }
     });
 
-    promptInput.addEventListener('keyup', (event) => {
+    chatInput.addEventListener('keyup', (event) => {
         if (event.key === 'Enter') {
-            promptSendBtn.click();
+            chatSendBtn.click();
         }
     });
     
