@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>데이터센터 각 군산</title>
-    <!-- ✅ 1. 마크다운 변환 라이브러리 추가 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         /* 기본 스타일 초기화 */
@@ -286,6 +285,7 @@
             font-size: 14px;
         }
 
+        /* ✅ 1. 챗봇 UI 스타일 수정 */
         #chat-toggle-btn {
             position: fixed;
             bottom: 30px;
@@ -310,8 +310,8 @@
             position: fixed;
             bottom: 100px;
             right: 30px;
-            width: 380px;
-            height: 500px;
+            width: 400px; /* 너비 증가 */
+            height: 600px; /* 높이 증가 */
             background-color: white;
             border-radius: 15px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.2);
@@ -330,9 +330,19 @@
         }
 
         .chat-header {
-            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
             font-weight: bold;
             border-bottom: 1px solid #eee;
+        }
+        #chat-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #888;
         }
 
         .chat-messages {
@@ -438,7 +448,11 @@
 
 <button id="chat-toggle-btn">💬</button>
 <div id="chat-panel">
-    <div class="chat-header">AI 챗봇</div>
+    <!-- ✅ 2. 챗봇 헤더 구조 수정 -->
+    <div class="chat-header">
+        <span>AI 챗봇</span>
+        <button id="chat-close-btn">&times;</button>
+    </div>
     <div class="chat-messages" id="chat-messages">
         <div class="message ai-message">안녕하세요! 군산시에 대해 무엇이든 물어보세요.</div>
     </div>
@@ -476,6 +490,8 @@
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
+    // ✅ 3. 챗봇 닫기 버튼 변수 추가
+    const chatCloseBtn = document.getElementById('chat-close-btn');
     
     const locationFilter = document.getElementById('location-filter');
     const mainTitleBtn = document.getElementById('main-title-btn');
@@ -506,7 +522,6 @@
 
     async function callVectorSearchAPI(prompt) {
         chatSendBtn.disabled = true;
-        
         const loadingElement = document.createElement('div');
         loadingElement.className = 'message ai-message';
         loadingElement.innerHTML = '<div class="loader" style="width:20px; height:20px; border-width:3px; margin: 0;"></div>';
@@ -514,12 +529,10 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         try {
-            // [수정] invoke 메소드를 그대로 사용하되, body에 캐시를 무력화할 고유한 값을 추가합니다.
+            // 1. Edge Function을 호출하여 관련 정보를 검색합니다.
             const { data, error } = await supabaseClient.functions.invoke('query-rag-v2', {
                 body: { 
                     query: prompt,
-                    // Edge Function은 이 값을 사용하지 않지만,
-                    // 캐시 시스템은 이 값 때문에 매번 다른 요청으로 인식합니다.
                     _cacheBust: new Date().getTime() 
                 }
             });
@@ -529,22 +542,71 @@
             const searchResults = data.data;
 
             if (searchResults && searchResults.length > 0) {
-                const contextText = searchResults
+                // 2. 검색된 정보들을 하나의 'context' 텍스트로 합칩니다.
+                const context = searchResults
                     .map(item => item.content)
                     .join('\n\n---\n\n');
+
+                // 3. [핵심] 이제 이 context를 LLM에게 보내 최종 답변 생성을 요청합니다.
+                const finalAnswer = await generateFormattedAnswer(context);
                 
-                loadingElement.innerHTML = marked.parse(contextText);
+                // 4. LLM이 생성한 최종 답변을 화면에 표시합니다.
+                loadingElement.innerHTML = marked.parse(finalAnswer);
+
             } else {
                 loadingElement.textContent = "죄송합니다, 관련 정보를 찾을 수 없습니다.";
             }
 
         } catch (error) {
-            console.error("Edge Function 호출 중 오류 발생:", error);
-            loadingElement.textContent = "답변을 불러오는 중 오류가 발생했습니다.";
+            console.error("최종 답변 생성 중 오류 발생:", error);
+            loadingElement.textContent = "AI 답변을 불러오는 중 오류가 발생했습니다.";
         } finally {
             chatSendBtn.disabled = false;
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+    }
+
+    // ⭐️ LLM을 호출하여 최종 답변을 생성하는 새로운 함수입니다.
+    // 이 함수는 Google AI의 Gemini 모델을 직접 호출하는 예시입니다.
+    async function generateFormattedAnswer(context) {
+        // 이 부분은 클라이언트에서 직접 Google API를 호출하는 예시이며,
+        // 보안을 위해 실제 프로덕션에서는 서버나 Edge Function을 통해 호출하는 것이 더 안전합니다.
+        const GOOGLE_API_KEY = "AIzaSyCR5ULonwEC5cJ4x-iskTNxoOZvNn3mF7E"; // 실제 키로 교체 필요
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_API_KEY}`;
+
+        const systemPrompt = `
+            당신은 '군산시 소식 요약 전문가'입니다.
+            아래 [검색된 소식 목록]을 바탕으로, 각 소식을 명확하고 가독성 좋은 마크다운 형식으로 정리하여 사용자에게 전달하세요.
+
+            **답변 형식 규칙:**
+            - 각 소식은 명확한 구분선(\`---\`)으로 나눕니다.
+            - 각 소식의 제목은 \`###\` (H3) 헤더와 굵은 글씨(\`**\`)로 강조해주세요.
+            - 요약 내용은 인용구(\`>\`) 형식으로 보기 좋게 표현해주세요.
+            - 관련 장소(spot) 정보가 있다면, \`* 관련 장소:\` 형식의 목록으로 표시해주세요.
+
+            만약 [검색된 소식 목록]이 비어있다면, "죄송합니다, 관련 소식을 찾을 수 없습니다." 라고만 답변하세요.
+        `;
+
+        const userPrompt = `[검색된 소식 목록]\n${context}`;
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: systemPrompt + userPrompt }]
+                }]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Google AI API error: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        return result.candidates[0].content.parts[0].text;
     }
 
     function clearOverlays() {
@@ -849,6 +911,11 @@
 
     chatToggleBtn.addEventListener('click', () => {
         chatPanel.classList.toggle('visible');
+    });
+
+    // ✅ 4. 챗봇 닫기 버튼 이벤트 추가
+    chatCloseBtn.addEventListener('click', () => {
+        chatPanel.classList.remove('visible');
     });
 
     chatSendBtn.addEventListener('click', () => {
