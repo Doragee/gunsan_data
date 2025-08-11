@@ -130,16 +130,24 @@
 
         .custom-overlay-label {
             position: absolute;
-            background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #999;
+            border-radius: 8px;
             padding: 8px 12px;
-            font-size: 14px;
-            font-weight: bold;
             text-align: center;
             white-space: nowrap;
-            transform: translate(-50%, -120%);
+            transform: translate(-50%, -50%);
             cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .custom-overlay-label strong {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+        .custom-overlay-label span {
+            font-size: 12px;
+            color: #555;
         }
 
         .modal-overlay {
@@ -285,7 +293,6 @@
             font-size: 14px;
         }
 
-        /* ✅ 1. 챗봇 UI 스타일 수정 */
         #chat-toggle-btn {
             position: fixed;
             bottom: 30px;
@@ -310,8 +317,8 @@
             position: fixed;
             bottom: 100px;
             right: 30px;
-            width: 400px; /* 너비 증가 */
-            height: 600px; /* 높이 증가 */
+            width: 400px;
+            height: 600px;
             background-color: white;
             border-radius: 15px;
             box-shadow: 0 5px 20px rgba(0,0,0,0.2);
@@ -448,7 +455,6 @@
 
 <button id="chat-toggle-btn">💬</button>
 <div id="chat-panel">
-    <!-- ✅ 2. 챗봇 헤더 구조 수정 -->
     <div class="chat-header">
         <span>AI 챗봇</span>
         <button id="chat-close-btn">&times;</button>
@@ -464,7 +470,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=qepqptanle&submodules=geocoder,drawing,visualization"></script>
+<script type="text/javascript" src="https://navermaps.github.io/maps.js/marker-clustering/src/marker-clustering.js"></script>
 
 <script>
     function CustomOverlay(options) {
@@ -490,7 +497,6 @@
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
-    // ✅ 3. 챗봇 닫기 버튼 변수 추가
     const chatCloseBtn = document.getElementById('chat-close-btn');
     
     const locationFilter = document.getElementById('location-filter');
@@ -514,6 +520,7 @@
     let initialCenter;
     let initialZoom;
     let isFilterChangedByMapClick = false;
+    let markerClusterer = null;
 
     const supabaseUrl = 'https://bkbqosrrqswiapjjjlii.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrYnFvc3JycXN3aWFwampqbGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM2NzQzNTQsImV4cCI6MjA2OTI1MDM1NH0.IQ_27vp3Q0wjmYnxx8_EOBZ7L5e5MbSc4tlxRkBXnG8';
@@ -529,7 +536,6 @@
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         try {
-            // 1. Edge Function을 호출하여 관련 정보를 검색합니다.
             const { data, error } = await supabaseClient.functions.invoke('query-rag-v2', {
                 body: { 
                     query: prompt,
@@ -542,15 +548,12 @@
             const searchResults = data.data;
 
             if (searchResults && searchResults.length > 0) {
-                // 2. 검색된 정보들을 하나의 'context' 텍스트로 합칩니다.
                 const context = searchResults
                     .map(item => item.content)
                     .join('\n\n---\n\n');
 
-                // 3. [핵심] 이제 이 context를 LLM에게 보내 최종 답변 생성을 요청합니다.
                 const finalAnswer = await generateFormattedAnswer(context);
                 
-                // 4. LLM이 생성한 최종 답변을 화면에 표시합니다.
                 loadingElement.innerHTML = marked.parse(finalAnswer);
 
             } else {
@@ -566,12 +569,8 @@
         }
     }
 
-    // ⭐️ LLM을 호출하여 최종 답변을 생성하는 새로운 함수입니다.
-    // 이 함수는 Google AI의 Gemini 모델을 직접 호출하는 예시입니다.
     async function generateFormattedAnswer(context) {
-        // 이 부분은 클라이언트에서 직접 Google API를 호출하는 예시이며,
-        // 보안을 위해 실제 프로덕션에서는 서버나 Edge Function을 통해 호출하는 것이 더 안전합니다.
-        const GOOGLE_API_KEY = "AIzaSyCR5ULonwEC5cJ4x-iskTNxoOZvNn3mF7E"; // 실제 키로 교체 필요
+        const GOOGLE_API_KEY = "AIzaSyCR5ULonwEC5cJ4x-iskTNxoOZvNn3mF7E";
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_API_KEY}`;
 
         const systemPrompt = `
@@ -612,6 +611,9 @@
     function clearOverlays() {
         currentOverlays.forEach(overlay => overlay.setMap(null));
         currentOverlays = [];
+        if (markerClusterer) {
+            markerClusterer.clearMarkers();
+        }
     }
 
     function drawOverlays(placesToDraw) {
@@ -620,15 +622,35 @@
 
         placesToDraw.forEach(place => {
             const position = new naver.maps.LatLng(place.latitude, place.longitude);
+            
+            // ✅ 1. 오버레이에 표시할 텍스트를 조건부로 생성
+            let infoParts = [];
+            if (place.newsCount > 0) {
+                infoParts.push(`뉴스: ${place.newsCount}건`);
+            }
+            if (place.facilityCount > 0) {
+                infoParts.push(`시설: ${place.facilityCount}곳`);
+            }
+
+            let contentString = `<div><strong>${place.name}</strong>`;
+            // 정보가 있을 경우에만 <br>과 <span>을 추가
+            if (infoParts.length > 0) {
+                contentString += `<br><span>${infoParts.join(', ')}</span>`;
+            }
+            contentString += `</div>`;
+
             const customOverlay = new CustomOverlay({
                 position: position,
-                content: `<div>${place.name}</div>`
+                content: contentString
             });
             customOverlay.setMap(map);
             
             customOverlay.getElement().addEventListener('click', function() {
-                showDetailsForPlace(place.name, position);
-                
+                if (place.facilityCount > 0) {
+                    showFacilitiesOnMap(place.name, position);
+                } else {
+                    map.morph(position, 15);
+                }
                 isFilterChangedByMapClick = true;
                 locationFilter.value = place.name;
             });
@@ -637,45 +659,63 @@
         });
     }
     
-    async function showDetailsForPlace(placeName, position) {
+    async function showFacilitiesOnMap(placeName, position) {
         map.morph(position, 15);
+        clearOverlays();
 
-        modalTitle.textContent = `${placeName} 요약 정보`;
-        modalContent.innerHTML = '<div class="loader"></div>';
-        modalOverlay.classList.add('visible');
+        const { data: facilities, error } = await supabaseClient
+            .from('publicFacilities')
+            .select('facility_name, latitude, longitude')
+            .eq('spot', placeName);
 
-        const [newsResponse, facilitiesResponse] = await Promise.all([
-            supabaseClient
-                .from('gunsan_news')
-                .select('*', { count: 'exact', head: true })
-                .eq('spot', placeName),
-            supabaseClient
-                .from('publicFacilities')
-                .select('*', { count: 'exact', head: true })
-                .eq('spot', placeName)
-        ]);
-        
-        const newsCount = newsResponse.count || 0;
-        const facilitiesCount = facilitiesResponse.count || 0;
+        if (error) {
+            console.error("Facilities fetch error:", error);
+            return;
+        }
 
-        let finalHtml = `
-            <div class="summary-item" id="news-summary-btn">
-                <strong>정책,소식</strong>
-                <span>${newsCount}건</span>
-            </div>
-            <div class="summary-item" id="facility-summary-btn">
-                <strong>공공정보</strong>
-                <span>${facilitiesCount}곳</span>
-            </div>
-        `;
-        
-        modalContent.innerHTML = finalHtml;
+        if (!facilities || facilities.length === 0) {
+            return;
+        }
 
-        document.getElementById('news-summary-btn').addEventListener('click', () => {
-            fetchAndShowNews(placeName);
+        const markers = facilities.map(facility => {
+            const facilityPosition = new naver.maps.LatLng(facility.latitude, facility.longitude);
+            const marker = new naver.maps.Marker({
+                position: facilityPosition,
+                title: facility.facility_name
+            });
+
+            const infoWindow = new naver.maps.InfoWindow({
+                content: `<div style="padding:10px;"><b>${facility.facility_name}</b></div>`
+            });
+
+            naver.maps.Event.addListener(marker, 'click', function() {
+                if (infoWindow.getMap()) {
+                    infoWindow.close();
+                } else {
+                    infoWindow.open(map, marker);
+                }
+            });
+
+            return marker;
         });
-        document.getElementById('facility-summary-btn').addEventListener('click', () => {
-            showPublicInfoView(placeName);
+
+        markerClusterer = new MarkerClustering({
+            minClusterSize: 2,
+            map: map,
+            markers: markers,
+            disableClickZoom: false,
+            gridSize: 120,
+            icons: [
+                {
+                    content: '<div style="cursor:pointer;width:40px;height:40px;line-height:42px;font-size:14px;background-color:#1a73e8;color:white;border-radius:50%;text-align:center;font-weight:bold;"></div>',
+                    size: new naver.maps.Size(40, 40),
+                    anchor: new naver.maps.Point(20, 20)
+                }
+            ],
+            indexGenerator: [10, 100, 200, 500, 1000],
+            stylingFunction: function(clusterMarker, count) {
+                clusterMarker.getElement().querySelector('div').textContent = count;
+            }
         });
     }
 
@@ -706,7 +746,6 @@
         locationFilter.value = 'all';
         drawOverlays(allPlaces);
         map.morph(initialCenter, initialZoom);
-        modalOverlay.classList.remove('visible');
     }
 
     function setupCheckboxFilters(data, renderFunction) {
@@ -794,7 +833,6 @@
     async function fetchAndShowNews(filterSpot = null) {
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
-        modalOverlay.classList.remove('visible');
         updateActiveNav(newsBtn);
         locationFilterContainer.style.display = 'none';
         newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 정책, 소식` : '정책, 소식';
@@ -825,7 +863,6 @@
     async function showPublicInfoView(filterSpot = null) {
         mapWrapper.style.display = 'none';
         newsContainer.style.display = 'block';
-        modalOverlay.classList.remove('visible');
         updateActiveNav(publicInfoBtn);
         locationFilterContainer.style.display = 'none';
         newsContainer.querySelector('h2').textContent = filterSpot ? `${filterSpot} - 공공정보` : '공공정보';
@@ -875,17 +912,22 @@
             return; 
         }
 
-        allPlaces = data;
+        const placesWithCounts = await Promise.all(data.map(async (place) => {
+            const [newsResponse, facilitiesResponse] = await Promise.all([
+                supabaseClient.from('gunsan_news').select('*', { count: 'exact', head: true }).eq('spot', place.name),
+                supabaseClient.from('publicFacilities').select('*', { count: 'exact', head: true }).eq('spot', place.name)
+            ]);
+            return {
+                ...place,
+                newsCount: newsResponse.count || 0,
+                facilityCount: facilitiesResponse.count || 0,
+            };
+        }));
+
+        allPlaces = placesWithCounts;
         populateDropdown(allPlaces);
         drawOverlays(allPlaces);
     }
-
-    modalCloseBtn.addEventListener('click', () => modalOverlay.classList.remove('visible'));
-    modalOverlay.addEventListener('click', (event) => {
-        if (event.target === modalOverlay) {
-            modalOverlay.classList.remove('visible');
-        }
-    });
 
     locationFilter.addEventListener('change', function() {
         if (isFilterChangedByMapClick) {
@@ -904,7 +946,11 @@
                 const firstPlaceInDistrict = filteredPlaces[0];
                 const newPosition = new naver.maps.LatLng(firstPlaceInDistrict.latitude, firstPlaceInDistrict.longitude);
                 
-                showDetailsForPlace(firstPlaceInDistrict.name, newPosition);
+                if (firstPlaceInDistrict.facilityCount > 0) {
+                    showFacilitiesOnMap(firstPlaceInDistrict.name, newPosition);
+                } else {
+                    map.morph(newPosition, 15);
+                }
             }
         }
     });
@@ -913,7 +959,6 @@
         chatPanel.classList.toggle('visible');
     });
 
-    // ✅ 4. 챗봇 닫기 버튼 이벤트 추가
     chatCloseBtn.addEventListener('click', () => {
         chatPanel.classList.remove('visible');
     });
