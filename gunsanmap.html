@@ -467,6 +467,7 @@
     const { createClient } = supabase;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
+    // ✅ 1. 사용자 수정 사항 반영
     async function callVectorSearchAPI(prompt) {
         chatSendBtn.disabled = true;
         const loadingElement = document.createElement('div');
@@ -486,22 +487,19 @@
             if (error) throw error;
 
             const searchResults = data.data;
+            const location = data.location; // Edge Function에서 반환된 위치 정보
 
             if (searchResults && searchResults.length > 0) {
-                // [수정] 검색 결과에 'link'가 있으면 컨텍스트에 함께 포함시킵니다.
                 const context = searchResults
                     .map(item => {
                         let text = item.content;
-                        // link 정보가 존재하고 비어있지 않은 경우에만 컨텍스트에 추가합니다.
                         if (item.link) {
-                            // LLM이 잘 인식할 수 있도록 명확한 텍스트로 링크를 추가합니다.
                             text += `\n[출처 링크: ${item.link}]`;
                         }
                         return text;
                     })
                     .join('\n\n---\n\n');
 
-                // 보강된 context를 사용하여 최종 답변을 생성합니다.
                 console.log("context:", context);   
                 const finalAnswer = await generateFormattedAnswer(context);
                 
@@ -509,6 +507,21 @@
 
             } else {
                 loadingElement.textContent = "죄송합니다, 관련 정보를 찾을 수 없습니다.";
+            }
+
+            // ✅ 2. 지도 이동 로직 추가
+            if (location && location.name) {
+                const targetPlace = allPlaces.find(p => p.name === location.name);
+                if (targetPlace) {
+                    resetToInitialView();
+                    const position = new naver.maps.LatLng(targetPlace.latitude, targetPlace.longitude);
+                    if (targetPlace.facilityCount > 0) {
+                        showFacilitiesOnMap(targetPlace.name, position);
+                    } else {
+                        map.morph(position, 15);
+                    }
+                    locationFilter.value = targetPlace.name;
+                }
             }
 
         } catch (error) {
@@ -520,7 +533,7 @@
         }
     }
 
-
+    // ✅ 3. 사용자 수정 사항 반영
     async function generateFormattedAnswer(context) {
         const GOOGLE_API_KEY = "AIzaSyCR5ULonwEC5cJ4x-iskTNxoOZvNn3mF7E";
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_API_KEY}`;
@@ -569,7 +582,6 @@
         }
     }
 
-    // ✅ 2. drawOverlays 함수 로직을 수정했습니다.
     function drawOverlays(placesToDraw) {
         clearOverlays();
         if (!placesToDraw || placesToDraw.length === 0) return;
@@ -809,7 +821,6 @@
         renderFacilityCards(allFacilities);
     }
     
-    // ✅ 3. 질문 로그를 가져와서 푸터에 표시하는 함수 추가 (복원)
     async function fetchAndDisplayQueryLogs() {
         const { data, error } = await supabaseClient
             .from('query_logs')
@@ -876,7 +887,7 @@
         allPlaces = placesWithCounts;
         populateDropdown(allPlaces);
         drawOverlays(allPlaces);
-        fetchAndDisplayQueryLogs(); // ✅ 4. 질문 로그 함수 호출
+        fetchAndDisplayQueryLogs();
     }
 
     locationFilter.addEventListener('change', function() {
