@@ -39,7 +39,6 @@
 - index.html (또는 gunsanmap.html): 모든 HTML, CSS, JavaScript 로직이 포함된 메인 애플리케이션 파일입니다.
 - Supabase Edge Functions
   - query-rag-v2: 사용자의 질문을 받아 라우팅, 벡터 검색, AI 답변 생성 요청까지 처리하는 핵심 함수입니다.
-  - generate-answer: 검색된 컨텍스트를 바탕으로 최종 답변을 생성하는 함수입니다.
 - Supabase Database
   - administrative_welfare_centers: 지역별 중심 좌표 데이터
   - publicFacilities: 공공시설 상세 정보
