@@ -46,3 +46,4 @@
   - chatbot_embeddings: 뉴스 및 시설 정보를 벡터로 변환하여 저장한 테이블
   - query_logs: 사용자 질문 기록
 - n8n_news_collect : n8n 에서 네이버 뉴스 수집을 자동화하는 API
+- CSV Chunking & Embedding (facilities, news).py : supabase 테이블에 있던 데이터를 임베딩화하는 파이썬 스크립트
