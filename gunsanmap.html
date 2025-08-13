@@ -577,7 +577,6 @@
         placesToDraw.forEach(place => {
             const position = new naver.maps.LatLng(place.latitude, place.longitude);
             
-            // 오버레이에 표시할 텍스트를 조건부로 생성
             let infoParts = [];
             if (place.newsCount > 0) {
                 infoParts.push(`뉴스: ${place.newsCount}건`);
@@ -587,7 +586,6 @@
             }
 
             let contentString = `<div><strong>${place.name}</strong>`;
-            // 정보가 있을 경우에만 <br>과 <span>을 추가
             if (infoParts.length > 0) {
                 contentString += `<br><span>${infoParts.join(', ')}</span>`;
             }
